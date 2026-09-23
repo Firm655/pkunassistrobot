@@ -38,13 +38,6 @@ create table public.patients (
 );
 comment on table public.patients is 'Caregiver-only: devices have no SELECT access to any patient column, including notes.';
 
-create table public.games (
-  id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id),
-  name text not null, description text, game_type text not null,
-  active boolean not null default true,
-  unique(id, organization_id)
-);
 create table public.devices (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id),
@@ -77,7 +70,7 @@ create table public.care_events (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id),
   patient_id uuid not null,
-  event_type text not null check (event_type in ('DAILY_CHECK_IN','MEDICINE','TASK','MEAL','REHABILITATION_GAME')),
+  event_type text not null check (event_type in ('DAILY_CHECK_IN','MEDICINE','TASK','MEAL')),
   title text not null check (length(trim(title)) between 1 and 200),
   description text,
   scheduled_date date not null, scheduled_time time not null,
@@ -141,18 +134,6 @@ create table public.alerts (
   check ((not reviewed and reviewed_by is null and reviewed_at is null)
     or (reviewed and reviewed_by is not null and reviewed_at is not null))
 );
-create table public.game_sessions (
-  id uuid primary key,
-  organization_id uuid not null, patient_id uuid not null, event_id uuid not null unique,
-  game_id uuid not null, device_id uuid not null,
-  started_at timestamptz not null, completed_at timestamptz not null,
-  duration_seconds integer not null check (duration_seconds between 0 and 86400),
-  score numeric, result_data jsonb not null default '{}',
-  foreign key(event_id,patient_id,organization_id) references public.care_events(id,patient_id,organization_id),
-  foreign key(game_id,organization_id) references public.games(id,organization_id),
-  foreign key(device_id,organization_id) references public.devices(id,organization_id),
-  check (completed_at >= started_at)
-);
 create table public.interaction_logs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id),
@@ -168,13 +149,12 @@ create table public.interaction_logs (
 do $ddl$
 declare t text; extra text;
 begin
-  foreach t in array array['check_in_questions','medicines','meals','tasks','game_assignments'] loop
+  foreach t in array array['check_in_questions','medicines','meals','tasks'] loop
     extra := case t
       when 'check_in_questions' then 'question text not null, answers jsonb not null check (jsonb_typeof(answers) = ''array'' and jsonb_array_length(answers) > 0), concerning_answers jsonb not null default ''[]'' check (jsonb_typeof(concerning_answers) = ''array'' and answers @> concerning_answers),'
       when 'medicines' then 'name text not null, dosage text not null, instructions text,'
       when 'meals' then 'meal_type text not null check (meal_type in (''BREAKFAST'',''LUNCH'',''DINNER'',''SNACK'')), description text,'
       when 'tasks' then 'title text not null, description text,'
-      when 'game_assignments' then 'game_id uuid not null, duration_minutes integer not null default 10 check (duration_minutes between 1 and 120), foreign key(game_id,organization_id) references public.games(id,organization_id),'
     end;
     execute format('create table public.%I (
       id uuid primary key default gen_random_uuid(),
@@ -208,9 +188,6 @@ begin
      or not ((new.payload->'answers') @> coalesce(new.payload->'concerning_answers','[]'::jsonb))) then
     raise exception 'Check-in requires answer choices and valid concerning answers';
   end if;
-  if new.event_type = 'REHABILITATION_GAME' and not exists (
-    select 1 from public.games g where g.id = (new.payload->>'game_id')::uuid and g.organization_id = new.organization_id and g.active
-  ) then raise exception 'An active game in this organization is required'; end if;
   return new;
 end $$;
 create trigger validate_event before insert or update on public.care_events for each row execute function private.validate_event();
@@ -231,17 +208,17 @@ $$;
 do $security$
 declare t text;
 begin
-  foreach t in array array['organizations','profiles','patients','games','devices','pairing_codes','care_events','patient_responses','messages','alerts','game_sessions','interaction_logs','check_in_questions','medicines','meals','tasks','game_assignments'] loop
+  foreach t in array array['organizations','profiles','patients','devices','pairing_codes','care_events','patient_responses','messages','alerts','interaction_logs','check_in_questions','medicines','meals','tasks'] loop
     execute format('alter table public.%I enable row level security',t);
     execute format('revoke all on public.%I from anon, authenticated',t);
     execute format('grant select on public.%I to authenticated',t);
     execute format('grant all on public.%I to service_role',t);
     execute format('create policy staff_read on public.%I for select to authenticated using (private.is_staff(%I))',t,case when t = 'organizations' then 'id' else 'organization_id' end);
     if t <> 'organizations' then execute format('create index on public.%I(organization_id)',t); end if;
-    if t in ('patients','care_events','devices','check_in_questions','medicines','meals','tasks','game_assignments') then
+    if t in ('patients','care_events','devices','check_in_questions','medicines','meals','tasks') then
       execute format('create trigger touch_updated_at before update on public.%I for each row execute function private.touch_updated_at()',t);
     end if;
-    if t in ('patients','care_events','games','check_in_questions','medicines','meals','tasks','game_assignments') then
+    if t in ('patients','care_events','check_in_questions','medicines','meals','tasks') then
       execute format('grant insert, update on public.%I to authenticated',t);
       execute format('create policy staff_insert on public.%I for insert to authenticated with check (private.is_staff(organization_id))',t);
       execute format('create policy staff_update on public.%I for update to authenticated using (private.is_staff(organization_id)) with check (private.is_staff(organization_id))',t);

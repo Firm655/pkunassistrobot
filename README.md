@@ -8,13 +8,13 @@ Supabase backend for the caregiver → P-kun → patient → caregiver loop. The
 - Supabase Auth identities separated into explicitly provisioned caregivers and paired device accounts.
 - Caregiver-only patient records, including every care note. Devices receive only the allowlisted `device_context()` result plus their assigned patient's events/messages.
 - Single-use, hashed pairing codes with a ten-minute lifetime; device revocation and assignment checks.
-- Atomic response processing, game sessions, alerts, requests, messages, acknowledgements and history.
+- Atomic response processing, alerts, requests, messages, acknowledgements and history.
 - Stable request IDs for safe offline retries; stale assignments are rejected instead of attaching data to a new patient.
 - Dated events and bounded ONCE/DAILY/WEEKLY schedule expansion; backend missed-event and offline-device detection.
 - RLS-filtered Realtime publication and a one-minute cron job.
 - Private caregiver-only patient photo bucket (JPEG/PNG/WebP, 5 MB).
 
-This repository currently implements the **database and backend**. The React dashboard, calendar UI, Kivy screens, rehabilitation games and ROS integration remain application work. No clinical decision logic is implemented.
+This repository currently implements the **database and backend**. The React dashboard, calendar UI, Kivy screens and ROS integration remain application work. Games are entirely local to the Raspberry Pi and are not stored, scheduled or reported by this backend. No clinical decision logic is implemented.
 
 ## Project
 

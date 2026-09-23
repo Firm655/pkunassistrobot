@@ -13,11 +13,12 @@ Applied through Supabase SQL Editor:
 | 202609230005 | One-minute pg_cron job |
 | 202609230006 | Null patient-assignment guard for acknowledgements |
 | 202609230007 | Private patient-photo bucket and Storage policies |
+| 202609230008 | Removes server-side games, assignments, sessions and game events |
 
 Verified on the hosted database:
 
-- Application tables: **17**, all **17** with RLS enabled.
-- Realtime publication: **7** application tables.
+- Application tables: **14**, all **14** with RLS enabled after the game-removal migration.
+- Realtime publication: **6** application tables.
 - `pkun-maintenance`: active; latest observed cron run **succeeded**.
 - `patient-photos`: private.
 - Hosted SQL smoke test: **PASS**, exercising tenant isolation, pairing, device-note isolation, caregiver event → device response → alert, retry deduplication, help requests, and message acknowledgement.

@@ -6,7 +6,7 @@ All RPC examples use `supabase.rpc(name, parameters)` and require checking the r
 
 After `auth.signInWithPassword`, load `profiles` for the current user. If no profile exists, show “Access not provisioned”; do not assume every Auth user is a caregiver. Use `auth.onAuthStateChange` and clear state on logout.
 
-Read and insert/update `patients`, `care_events`, `check_in_questions`, `medicines`, `meals`, `tasks`, `games` and `game_assignments`. Supply your profile's `organization_id`. Database constraints prevent foreign-organization patient, caregiver, game and device links. Devices cannot perform these writes.
+Read and insert/update `patients`, `care_events`, `check_in_questions`, `medicines`, `meals` and `tasks`. Supply your profile's `organization_id`. Database constraints prevent foreign-organization patient, caregiver and device links. Devices cannot perform these writes. Games are operated entirely on the Raspberry Pi and have no backend API.
 
 For a dated medicine event:
 
@@ -23,7 +23,7 @@ await supabase.from('care_events').insert({
 
 `created_by` defaults to the signed-in user. `scheduled_at` and `due_at` are calculated server-side; provide `due_at` only to override the one-hour window. `description` and `payload` are patient-facing. Never put private care notes in either field. Store notes only on `patients`.
 
-Check-in payload: `{answers: ['Fine', 'Unwell'], concerning_answers: ['Unwell']}`. Game payload: `{game_id: 'UUID', duration_minutes: 10}`. Games are organization-specific. For recurring activities insert the corresponding configuration row, including `start_date`, optional `end_date`, `scheduled_time` and `recurrence: 'ONCE' | 'DAILY' | 'WEEKLY'`, then call `refresh_schedules`.
+Check-in payload: `{answers: ['Fine', 'Unwell'], concerning_answers: ['Unwell']}`. For recurring activities insert the corresponding configuration row, including `start_date`, optional `end_date`, `scheduled_time` and `recurrence: 'ONCE' | 'DAILY' | 'WEEKLY'`, then call `refresh_schedules`.
 
 | RPC | Parameters | Returns |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ Use a dedicated Supabase Auth account, a publishable key, and normal session ref
 | `send_patient_request` | `submission_id`, `patient_id`, `request_code` (`HELP`, `HUNGRY`, `NOT_RIGHT`) | Message UUID |
 | `acknowledge_message` | `message_id`, `patient_id`, `acknowledged` (default true) | void |
 
-`submit_response` accepts MEDICINE/MEAL `YES` or `NO`, a configured DAILY_CHECK_IN answer, TASK `DISPLAYED`, and REHABILITATION_GAME `COMPLETED`. Game `response_data` must include ISO timestamps `started_at`, `completed_at`, optional numeric `score`, and optional result details. The database computes duration and uses the event's game ID. No client-supplied patient, device or game relationship is trusted.
+`submit_response` accepts MEDICINE/MEAL `YES` or `NO`, a configured DAILY_CHECK_IN answer, and TASK `DISPLAYED`. No client-supplied patient or device relationship is trusted.
 
 Generate `submission_id` once and persist the entire request to SQLite **before** sending it. Keep the original `response_time` on every retry; defaults are convenient for a one-off call but not offline replay. Network errors and timeouts are retryable; assignment/revocation/validation errors must be quarantined for operator review. Never silently change the patient ID of a queued response. Closed events reject a second, different submission ID.
 
@@ -66,7 +66,7 @@ The Pi's clock/timer presents cached events at `scheduled_at`. The database dead
 
 ## Realtime
 
-Published tables: `care_events`, `messages`, `patient_responses`, `alerts`, `devices`, `game_sessions`, `interaction_logs`.
+Published tables: `care_events`, `messages`, `patient_responses`, `alerts`, `devices`, `interaction_logs`.
 
 ```ts
 const channel = supabase.channel('patient-events')

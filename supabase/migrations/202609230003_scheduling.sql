@@ -10,7 +10,7 @@ begin
   select timezone into zone from public.organizations where id = org;
   if zone is null then raise exception 'Organization not found'; end if;
   local_today := (now() at time zone zone)::date;
-  foreach t in array array['check_in_questions','medicines','meals','tasks','game_assignments'] loop
+  foreach t in array array['check_in_questions','medicines','meals','tasks'] loop
     for row_data in execute format('select to_jsonb(s) from public.%I s where organization_id = $1',t) using org loop
       schedule_id := (row_data->>'id')::uuid;
       start_day := (row_data->>'start_date')::date;
@@ -27,17 +27,15 @@ begin
         select 1 from public.patients where id = (row_data->>'patient_id')::uuid and status = 'ACTIVE'
       ) then continue; end if;
       kind := case t when 'check_in_questions' then 'DAILY_CHECK_IN' when 'medicines' then 'MEDICINE'
-        when 'meals' then 'MEAL' when 'tasks' then 'TASK' else 'REHABILITATION_GAME' end;
-      event_title := coalesce(row_data->>'question',row_data->>'name',row_data->>'title',row_data->>'meal_type','Rehabilitation game');
+        when 'meals' then 'MEAL' else 'TASK' end;
+      event_title := coalesce(row_data->>'question',row_data->>'name',row_data->>'title',row_data->>'meal_type');
       event_description := coalesce(row_data->>'instructions',row_data->>'description');
       -- Allowlist patient-facing fields; never copy an entire patient or configuration row.
       event_payload := case t
         when 'check_in_questions' then jsonb_build_object('answers',row_data->'answers','concerning_answers',row_data->'concerning_answers')
         when 'medicines' then jsonb_build_object('name',row_data->>'name','dosage',row_data->>'dosage','instructions',row_data->>'instructions')
         when 'meals' then jsonb_build_object('meal_type',row_data->>'meal_type')
-        when 'game_assignments' then jsonb_build_object('game_id',row_data->>'game_id','duration_minutes',(row_data->>'duration_minutes')::integer)
         else '{}'::jsonb end;
-      if t = 'game_assignments' and not exists(select 1 from public.games where id = (row_data->>'game_id')::uuid and active) then continue; end if;
       for day in select generate_series(greatest(start_day,local_today)::timestamp,end_day::timestamp,interval '1 day')::date loop
         if row_data->>'recurrence' = 'ONCE' and day <> start_day then continue; end if;
         if row_data->>'recurrence' = 'WEEKLY' and (day - start_day) % 7 <> 0 then continue; end if;

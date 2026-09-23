@@ -58,7 +58,7 @@ after(async () => { if (db) await db.close(); });
 
 test('every application table has RLS and signed-out users have no table access', async () => {
   const tables = await db.query(`select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and relkind='r'`);
-  assert.equal(tables.rows.length,17);
+  assert.equal(tables.rows.length,14);
   for (const table of tables.rows) {
     assert.equal(table.relrowsecurity,true,table.relname);
     await assert.rejects(as(null,`select * from public.${table.relname}`,[],'anon'),/permission denied/);
@@ -128,15 +128,6 @@ test('check-in validates choices and generates configured alerts', async () => {
 test('tasks complete from a display receipt without asking the patient', async () => {
   const e = await event('TASK'); await respond(e,'DISPLAYED');
   assert.deepEqual((await as(staffA,'select status,response_required from public.care_events where id=$1',[e]))[0],{status:'COMPLETED',response_required:false});
-});
-test('game results record server-calculated duration and score', async () => {
-  const game = id();
-  await as(adminA,`insert into public.games(id,organization_id,name,game_type) values($1,$2,'Synthetic game','MEMORY')`,[game,orgA]);
-  const e = await event('REHABILITATION_GAME',{game_id:game});
-  const started = new Date(Date.now()-30000).toISOString(), finished = new Date().toISOString();
-  await respond(e,'COMPLETED',{started_at:started,completed_at:finished,score:12});
-  const rows = await as(staffA,'select duration_seconds,score from public.game_sessions where event_id=$1',[e]);
-  assert.equal(rows[0].duration_seconds,30); assert.equal(Number(rows[0].score),12);
 });
 test('patient help and not-right requests are urgent; hungry remains a message; retries do not duplicate', async () => {
   for (const code of ['HELP','NOT_RIGHT','HUNGRY']) {

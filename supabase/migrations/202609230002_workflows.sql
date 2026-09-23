@@ -78,7 +78,6 @@ create function public.submit_response(
 declare
   d public.devices; e public.care_events; prior public.patient_responses;
   alert_kind text; new_status text := 'COMPLETED';
-  started timestamptz; finished timestamptz; duration integer; game uuid;
 begin
   d := private.require_device(patient_id);
   select * into e from public.care_events c where c.id = event_id and c.patient_id = submit_response.patient_id for update;
@@ -107,18 +106,6 @@ begin
     if coalesce(e.payload->'concerning_answers','[]'::jsonb) ? response then alert_kind := 'CONCERNING_CHECK_IN'; end if;
   elsif e.event_type = 'TASK' then
     if response <> 'DISPLAYED' then raise exception 'Task requires a DISPLAYED receipt'; end if;
-  elsif e.event_type = 'REHABILITATION_GAME' then
-    if response <> 'COMPLETED' then raise exception 'Game requires a COMPLETED result'; end if;
-    game := (e.payload->>'game_id')::uuid;
-    started := (response_data->>'started_at')::timestamptz;
-    finished := (response_data->>'completed_at')::timestamptz;
-    if started is null or finished is null or started < e.scheduled_at - interval '5 minutes'
-      or finished < started or finished > response_time or finished - started > interval '24 hours' then
-      raise exception 'Invalid game session timing';
-    end if;
-    duration := floor(extract(epoch from finished - started));
-    insert into public.game_sessions(id,organization_id,patient_id,event_id,game_id,device_id,started_at,completed_at,duration_seconds,score,result_data)
-      values(submission_id,e.organization_id,e.patient_id,e.id,game,d.id,started,finished,duration,(response_data->>'score')::numeric,response_data);
   end if;
   if alert_kind is not null then new_status := 'ALERT'; end if;
   insert into public.patient_responses(id,organization_id,patient_id,event_id,device_id,response,response_data,response_time)
