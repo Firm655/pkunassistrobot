@@ -1,0 +1,1370 @@
+{
+  "project": {
+    "name": "P-kun Elder-Care Assistant Platform",
+    "short_name": "P-kun Platform",
+    "version": "1.0 Prototype",
+    "type": "Caregiver-managed elderly care assistance platform",
+    "purpose": "A web-based platform where nurses or caregivers manage each patient's daily care routine, schedules, care activities, messages and monitoring, while a Raspberry Pi-based P-kun device acts as the patient-facing interface. P-kun displays scheduled activities, collects simple patient responses, provides rehabilitation activities, and allows patients to send preset requests to caregivers.",
+    "primary_goal": "Build a functional end-to-end prototype that demonstrates the complete caregiver -> platform -> P-kun -> patient -> platform -> caregiver feedback loop.",
+    "scope_principle": "Prioritize a reliable working prototype over enterprise-level healthcare complexity.",
+    "important_scope_limit": "Do not implement a formal clinical care-plan system, diagnosis system, electronic medical record system, hospital information system, billing system, or other unnecessary enterprise healthcare functionality."
+  },
+
+  "system_concept": {
+    "description": "The healthcare platform is the primary system of record for patients and their scheduled care activities. Caregivers use the React web dashboard to manage patients, configure schedules, monitor responses and review alerts. P-kun is a connected physical patient-facing endpoint that retrieves relevant scheduled events, presents them to the elderly user, collects simple responses and synchronizes results with the platform.",
+    "source_of_truth": "Supabase PostgreSQL database",
+    "calendar_role": "The calendar is the primary user interface for viewing and managing scheduled care events. The database remains the actual source of truth.",
+    "p_kun_role": "P-kun is a connected patient-facing interface and should not contain the primary patient management logic.",
+    "platform_without_p_kun": "The web platform should remain usable for managing patients, schedules, history and alerts even when a P-kun device is offline.",
+    "closed_loop": [
+      "Caregiver creates or modifies a care event",
+      "Event is stored in Supabase",
+      "Relevant P-kun receives the updated event",
+      "P-kun displays the event to the patient",
+      "Patient interacts with P-kun",
+      "P-kun records the response",
+      "Response is synchronized with Supabase",
+      "Platform updates the event and patient history",
+      "Caretaker can see the result",
+      "Important responses can generate alerts"
+    ]
+  },
+
+  "technology_stack": {
+    "frontend": {
+      "framework": "React",
+      "language": "TypeScript preferred",
+      "routing": "React Router",
+      "state_management": "Use React state and lightweight context where sufficient. Do not introduce a large state-management framework unless genuinely necessary.",
+      "ui": "Use a clean modern responsive dashboard UI suitable for nurses and caregivers.",
+      "calendar": "Use a mature React calendar component/library rather than implementing a calendar from scratch.",
+      "charts": "Use simple charts only where they improve understanding of patient activity or history."
+    },
+
+    "backend": {
+      "platform": "Supabase",
+      "database": "Supabase PostgreSQL",
+      "authentication": "Supabase Auth",
+      "realtime": "Supabase Realtime",
+      "storage": "Supabase Storage for patient profile photos if required",
+      "server_logic": "Supabase Edge Functions only where server-side processing is actually required"
+    },
+
+    "p_kun": {
+      "hardware": "Raspberry Pi 4 GB",
+      "operating_system": "Ubuntu Server",
+      "application_language": "Python",
+      "ui_framework": "Kivy",
+      "local_database": "SQLite",
+      "communication": "Supabase",
+      "robot_middleware": "ROS 2 through rclpy"
+    }
+  },
+
+  "architecture": {
+    "high_level": [
+      "React Caregiver Dashboard",
+      "Supabase Authentication",
+      "Supabase PostgreSQL",
+      "Supabase Realtime",
+      "Raspberry Pi P-kun Application",
+      "P-kun Local SQLite Cache",
+      "ROS 2 robotics interface"
+    ],
+
+    "communication": {
+      "dashboard_to_backend": "React communicates with Supabase.",
+      "p_kun_to_backend": "P-kun communicates with Supabase.",
+      "dashboard_to_p_kun": "Dashboard does not communicate directly with the Raspberry Pi.",
+      "p_kun_to_dashboard": "P-kun does not communicate directly with the dashboard.",
+      "network": "Both clients communicate through Supabase over the available network connection.",
+      "local_network": "The Raspberry Pi and caregiver computer may be connected to the same Wi-Fi during a demonstration, but the application must not depend on direct local IP communication."
+    },
+
+    "realtime": {
+      "purpose": [
+        "Deliver newly created or modified care events to P-kun",
+        "Deliver caregiver messages to P-kun",
+        "Update caregiver dashboard when patient responses arrive",
+        "Display patient requests and alerts in near real time",
+        "Update device online status"
+      ],
+      "restriction": "Supabase Realtime is an event propagation mechanism and must not be treated as the scheduling engine."
+    },
+
+    "scheduling": {
+      "source": "Supabase-stored care events",
+      "prototype_model": "Use a simple dated care-event model. Do not implement a complex care-event-template and occurrence architecture for this prototype.",
+      "recurrence": "Store recurrence information with the event and generate/manage dated occurrences only as necessary for the prototype.",
+      "missed_events": "Event status should be determined by backend/application logic rather than relying exclusively on the Raspberry Pi."
+    }
+  },
+
+  "user_roles": {
+    "caretaker": {
+      "description": "Nurse, caregiver or authorized staff member responsible for managing and monitoring elderly patients.",
+      "permissions": [
+        "Log in",
+        "Create patients",
+        "Edit patients",
+        "View patients",
+        "Add caretaker-only care notes",
+        "Create care events",
+        "Edit care events",
+        "Delete or disable care events",
+        "Configure daily check-ins",
+        "Configure medicine schedules",
+        "Configure meal schedules",
+        "Configure task reminders",
+        "Assign rehabilitation games",
+        "Send messages to patients",
+        "View patient responses",
+        "View patient history",
+        "View alerts",
+        "Review alerts",
+        "View device status",
+        "Assign P-kun devices to patients"
+      ]
+    },
+
+    "patient": {
+      "description": "The elderly person interacting with the P-kun device.",
+      "interaction": [
+        "Answer daily check-in questions",
+        "Confirm medicine intake",
+        "Confirm meal completion",
+        "Interact with scheduled activities",
+        "Play assigned rehabilitation games",
+        "Receive caregiver messages",
+        "Send preset messages to the caretaker at any time"
+      ],
+      "restriction": "Patients do not log into or manage the caregiver web dashboard in this prototype."
+    }
+  },
+
+  "database": {
+    "design_principle": "Keep the database understandable and practical for a prototype while maintaining clear relationships and organization-level security.",
+
+    "organizations": {
+      "purpose": "Represent a healthcare organization or facility.",
+      "fields": [
+        "id",
+        "name",
+        "created_at"
+      ]
+    },
+
+    "profiles": {
+      "purpose": "Authenticated caregiver and staff profiles.",
+      "fields": [
+        "id",
+        "organization_id",
+        "full_name",
+        "role",
+        "created_at"
+      ],
+      "roles": [
+        "admin",
+        "caretaker"
+      ]
+    },
+
+    "patients": {
+      "purpose": "Store basic information about elderly users.",
+      "fields": [
+        "id",
+        "organization_id",
+        "name",
+        "date_of_birth",
+        "age",
+        "profile_photo",
+        "assigned_caretaker_id",
+        "emergency_contact",
+        "status",
+        "special_requirements",
+        "dietary_requirements",
+        "food_restrictions",
+        "allergies",
+        "mobility_notes",
+        "communication_preferences",
+        "behavioral_notes",
+        "other_notes",
+        "created_at",
+        "updated_at"
+      ],
+      "status_values": [
+        "ACTIVE",
+        "INACTIVE"
+      ],
+      "privacy_rule": "All care notes are caretaker-only information and must never be sent to or displayed by P-kun."
+    },
+
+    "care_events": {
+      "purpose": "Represent scheduled patient care activities.",
+      "fields": [
+        "id",
+        "patient_id",
+        "event_type",
+        "title",
+        "description",
+        "scheduled_date",
+        "scheduled_time",
+        "recurrence",
+        "status",
+        "response_required",
+        "response_data",
+        "created_by",
+        "created_at",
+        "updated_at",
+        "completed_at"
+      ],
+      "event_types": [
+        "DAILY_CHECK_IN",
+        "MEDICINE",
+        "TASK",
+        "MEAL",
+        "REHABILITATION_GAME"
+      ],
+      "status_values": [
+        "SCHEDULED",
+        "PENDING",
+        "COMPLETED",
+        "MISSED",
+        "ALERT",
+        "SKIPPED"
+      ],
+      "response_data": "Use JSONB for event-specific information such as selected check-in answer, medicine response or game result."
+    },
+
+    "check_in_questions": {
+      "purpose": "Store configurable patient check-in questions.",
+      "fields": [
+        "id",
+        "patient_id",
+        "question",
+        "answers",
+        "concerning_answers",
+        "scheduled_time",
+        "recurrence",
+        "enabled",
+        "created_by",
+        "created_at"
+      ],
+      "answers": "JSON array of predefined selectable answers.",
+      "concerning_answers": "JSON array identifying answers that should generate alerts."
+    },
+
+    "medicines": {
+      "purpose": "Store medicine schedule configuration.",
+      "fields": [
+        "id",
+        "patient_id",
+        "name",
+        "dosage",
+        "instructions",
+        "scheduled_time",
+        "recurrence",
+        "enabled",
+        "created_by",
+        "created_at"
+      ]
+    },
+
+    "meals": {
+      "purpose": "Store patient meal schedule configuration.",
+      "fields": [
+        "id",
+        "patient_id",
+        "meal_type",
+        "description",
+        "scheduled_time",
+        "recurrence",
+        "enabled",
+        "created_by",
+        "created_at"
+      ],
+      "default_meals": [
+        {
+          "meal_type": "BREAKFAST",
+          "default_time": "08:00"
+        },
+        {
+          "meal_type": "LUNCH",
+          "default_time": "12:00"
+        },
+        {
+          "meal_type": "DINNER",
+          "default_time": "18:00"
+        }
+      ]
+    },
+
+    "tasks": {
+      "purpose": "Store simple patient activity reminders.",
+      "fields": [
+        "id",
+        "patient_id",
+        "title",
+        "description",
+        "scheduled_time",
+        "recurrence",
+        "enabled",
+        "created_by",
+        "created_at"
+      ]
+    },
+
+    "games": {
+      "purpose": "Store rehabilitation or cognitive games available to the platform.",
+      "fields": [
+        "id",
+        "name",
+        "description",
+        "game_type",
+        "active"
+      ]
+    },
+
+    "game_assignments": {
+      "purpose": "Assign rehabilitation games to patients.",
+      "fields": [
+        "id",
+        "patient_id",
+        "game_id",
+        "scheduled_time",
+        "recurrence",
+        "duration_minutes",
+        "enabled",
+        "created_by",
+        "created_at"
+      ]
+    },
+
+    "game_sessions": {
+      "purpose": "Store results from P-kun rehabilitation game sessions.",
+      "fields": [
+        "id",
+        "patient_id",
+        "game_id",
+        "device_id",
+        "started_at",
+        "completed_at",
+        "duration_seconds",
+        "score",
+        "result_data"
+      ]
+    },
+
+    "patient_responses": {
+      "purpose": "Store responses submitted by patients through P-kun.",
+      "fields": [
+        "id",
+        "patient_id",
+        "event_id",
+        "response",
+        "response_data",
+        "response_time"
+      ]
+    },
+
+    "messages": {
+      "purpose": "Store communication between caregivers and patients.",
+      "fields": [
+        "id",
+        "patient_id",
+        "sender_type",
+        "sender_id",
+        "message_type",
+        "message",
+        "created_at",
+        "delivered_at",
+        "acknowledged_at"
+      ],
+      "sender_types": [
+        "CARETAKER",
+        "PATIENT"
+      ],
+      "message_types": [
+        "PRESET",
+        "CUSTOM",
+        "PATIENT_REQUEST"
+      ]
+    },
+
+    "alerts": {
+      "purpose": "Store situations requiring caretaker attention.",
+      "fields": [
+        "id",
+        "patient_id",
+        "event_id",
+        "alert_type",
+        "message",
+        "priority",
+        "created_at",
+        "reviewed",
+        "reviewed_by",
+        "reviewed_at"
+      ],
+      "alert_types": [
+        "MEDICINE_NOT_TAKEN",
+        "MEAL_NOT_COMPLETED",
+        "CONCERNING_CHECK_IN",
+        "PATIENT_HELP_REQUEST",
+        "PATIENT_SOMETHING_WRONG",
+        "MISSED_EVENT",
+        "DEVICE_OFFLINE"
+      ],
+      "priority_values": [
+        "NORMAL",
+        "ATTENTION",
+        "HIGH"
+      ]
+    },
+
+    "devices": {
+      "purpose": "Represent registered P-kun devices.",
+      "fields": [
+        "id",
+        "organization_id",
+        "device_name",
+        "device_type",
+        "assigned_patient_id",
+        "status",
+        "last_seen",
+        "app_version",
+        "capabilities",
+        "created_at",
+        "updated_at"
+      ],
+      "status_values": [
+        "ONLINE",
+        "OFFLINE",
+        "PAIRING"
+      ],
+      "capabilities": "JSONB containing available device capabilities such as display, games, audio, numpad and robot movement."
+    },
+
+    "pairing_codes": {
+      "purpose": "Temporarily authorize a P-kun device to register with an organization.",
+      "fields": [
+        "id",
+        "organization_id",
+        "code",
+        "expires_at",
+        "used",
+        "created_at"
+      ],
+      "security": "Pairing codes must expire and must not function as permanent device credentials."
+    },
+
+    "interaction_logs": {
+      "purpose": "Record important system and patient interactions for history and debugging.",
+      "fields": [
+        "id",
+        "patient_id",
+        "device_id",
+        "event_id",
+        "action",
+        "data",
+        "created_at"
+      ]
+    }
+  },
+
+  "security": {
+    "authentication": "Use Supabase Auth.",
+    "authorization": "Use Supabase Row Level Security.",
+    "organization_isolation": "Users must only access records belonging to their organization.",
+    "patient_access": "Caregivers must not be able to access patients belonging to another organization.",
+    "caretaker_access": "Restrict caregiver functionality according to role.",
+    "care_notes": "Patient care notes are private caregiver information and must never be exposed through P-kun event payloads.",
+    "credentials": "Never hardcode Supabase service-role keys, passwords or private credentials in frontend code.",
+    "frontend_security": "Only expose credentials intended for browser use.",
+    "device_security": "Do not use an organization ID alone as a device authentication mechanism.",
+    "pairing": "Use temporary pairing codes for initial device registration.",
+    "prototype_security": "Implement sensible authentication and authorization without attempting enterprise healthcare compliance beyond the prototype requirements."
+  },
+
+  "caretaker_platform": {
+    "navigation": [
+      "Dashboard",
+      "Patients",
+      "Calendar",
+      "Alerts",
+      "History"
+    ],
+
+    "dashboard": {
+      "purpose": "Give the caretaker an immediate overview of the current care situation.",
+      "sections": [
+        "Today's date",
+        "Today's upcoming events",
+        "Recently completed events",
+        "Missed events",
+        "Active alerts",
+        "Patient overview",
+        "P-kun device status"
+      ],
+      "quick_actions": [
+        "Add schedule event",
+        "View calendar",
+        "View patients",
+        "View alerts"
+      ]
+    },
+
+    "patients": {
+      "patient_list": {
+        "display": [
+          "Patient name",
+          "Profile photo",
+          "Basic status",
+          "Today's schedule summary",
+          "Outstanding alerts",
+          "Assigned P-kun"
+        ],
+        "actions": [
+          "Open patient profile",
+          "Open patient calendar",
+          "View history"
+        ]
+      },
+
+      "patient_profile": {
+        "sections": [
+          "Basic information",
+          "Care notes",
+          "Today's schedule",
+          "Recent responses",
+          "Medicine adherence",
+          "Meal responses",
+          "Game activity",
+          "Messages",
+          "Alerts",
+          "History"
+        ],
+
+        "basic_information": [
+          "Patient name",
+          "Date of birth or age",
+          "Profile photo",
+          "Assigned caretaker",
+          "Optional emergency contact"
+        ],
+
+        "care_notes": {
+          "description": "Private information intended only for caregivers.",
+          "fields": [
+            "Special requirements",
+            "Dietary requirements",
+            "Food restrictions",
+            "Allergies",
+            "Mobility considerations",
+            "Communication preferences",
+            "Behavioral notes",
+            "Other important notes"
+          ],
+          "pi_visibility": false
+        }
+      }
+    },
+
+    "calendar": {
+      "purpose": "Primary interface for managing and reviewing care schedules.",
+
+      "overall_calendar": {
+        "description": "Display events for all patients managed by the caretaker.",
+        "views": [
+          "Month",
+          "Week",
+          "Day"
+        ],
+        "features": [
+          "Show patient name on event",
+          "Filter by patient",
+          "Filter by event type",
+          "Filter by status",
+          "Open event details",
+          "Create event",
+          "Edit event"
+        ]
+      },
+
+      "patient_calendar": {
+        "description": "Display the complete schedule for one selected patient.",
+        "views": [
+          "Month",
+          "Week",
+          "Day"
+        ],
+        "features": [
+          "Daily event timeline",
+          "Upcoming events",
+          "Completed events",
+          "Missed events",
+          "Alert events",
+          "Open event details",
+          "Create event",
+          "Edit event"
+        ]
+      },
+
+      "event_types": [
+        "DAILY_CHECK_IN",
+        "MEDICINE",
+        "TASK",
+        "MEAL",
+        "REHABILITATION_GAME"
+      ],
+
+      "event_display": [
+        "Event type",
+        "Event title",
+        "Scheduled date",
+        "Scheduled time",
+        "Patient name",
+        "Status"
+      ],
+
+      "create_event": {
+        "common_fields": [
+          "Patient",
+          "Event type",
+          "Date",
+          "Time",
+          "Recurrence"
+        ],
+        "dynamic_fields": "Display event-specific fields depending on the selected event type."
+      }
+    },
+
+    "daily_check_in": {
+      "configuration": [
+        "Patient",
+        "Question",
+        "Preset answers",
+        "Concerning answers",
+        "Display time",
+        "Recurrence",
+        "Enabled/disabled"
+      ],
+
+      "monitoring": [
+        "Submitted answer",
+        "Response time",
+        "Response history",
+        "Concerning response",
+        "Generated alert"
+      ]
+    },
+
+    "medicine": {
+      "configuration": [
+        "Patient",
+        "Medicine name",
+        "Dosage",
+        "Instructions",
+        "Scheduled time",
+        "Recurrence",
+        "Enabled/disabled"
+      ],
+
+      "monitoring": [
+        "Taken",
+        "Not taken",
+        "Pending",
+        "Missed",
+        "Response timestamp"
+      ]
+    },
+
+    "meals": {
+      "configuration": [
+        "Patient",
+        "Meal type",
+        "Description",
+        "Scheduled time",
+        "Recurrence",
+        "Enabled/disabled"
+      ],
+
+      "monitoring": [
+        "Completed",
+        "Not completed",
+        "Pending",
+        "Missed",
+        "Response timestamp"
+      ]
+    },
+
+    "tasks": {
+      "configuration": [
+        "Patient",
+        "Task name",
+        "Optional description",
+        "Scheduled time",
+        "Recurrence",
+        "Enabled/disabled"
+      ],
+      "behavior": "Tasks are simple reminders and do not require patient confirmation in the current prototype."
+    },
+
+    "rehabilitation_games": {
+      "configuration": [
+        "Patient",
+        "Game",
+        "Scheduled time",
+        "Recurrence",
+        "Optional duration"
+      ],
+      "monitoring": [
+        "Session started",
+        "Session completed",
+        "Duration",
+        "Score",
+        "Basic result history"
+      ]
+    },
+
+    "messaging": {
+      "features": [
+        "Select patient",
+        "Send preset message",
+        "Send short custom message",
+        "View delivery status",
+        "View acknowledgement"
+      ],
+      "preset_messages": [
+        "Good morning!",
+        "Please remember to take your medicine.",
+        "Please have your lunch.",
+        "Please get ready for your activity."
+      ]
+    },
+
+    "alerts": {
+      "display": [
+        "Patient",
+        "Alert type",
+        "Message",
+        "Time",
+        "Priority",
+        "Review status"
+      ],
+      "actions": [
+        "Open patient",
+        "Open related event",
+        "Mark as reviewed"
+      ]
+    },
+
+    "history": {
+      "record_types": [
+        "Daily check-in responses",
+        "Medicine confirmations",
+        "Meal confirmations",
+        "Task reminders",
+        "Rehabilitation sessions",
+        "Caretaker messages",
+        "Patient requests",
+        "Alerts"
+      ],
+      "filters": [
+        "Patient",
+        "Date range",
+        "Event type",
+        "Status"
+      ]
+    },
+
+    "devices": {
+      "features": [
+        "View P-kun devices",
+        "View device status",
+        "View assigned patient",
+        "View last seen",
+        "View application version",
+        "View device capabilities",
+        "Generate pairing code",
+        "Assign device to patient",
+        "Unassign device"
+      ]
+    }
+  },
+
+  "patient_interactions": {
+    "daily_check_in": {
+      "pi_behavior": [
+        "Retrieve scheduled check-in",
+        "Display one question at a time",
+        "Display large predefined answer buttons",
+        "Record selected answer",
+        "Send response to Supabase",
+        "Move to next question",
+        "Finish check-in",
+        "Return to normal screen"
+      ]
+    },
+
+    "medicine": {
+      "display": [
+        "Medicine name",
+        "Dosage",
+        "Instructions"
+      ],
+      "question": "Have you taken your medicine?",
+      "answers": [
+        "YES",
+        "NO"
+      ],
+      "yes": [
+        "Record medicine as taken",
+        "Store response timestamp",
+        "Synchronize with Supabase",
+        "Close interaction"
+      ],
+      "no": [
+        "Record medicine as not taken",
+        "Store response timestamp",
+        "Create caretaker alert",
+        "Close interaction"
+      ]
+    },
+
+    "meal": {
+      "display": [
+        "Meal type",
+        "Meal description"
+      ],
+      "question": "Have you eaten yet?",
+      "answers": [
+        "YES",
+        "NO"
+      ],
+      "yes": [
+        "Record meal as completed",
+        "Store response timestamp",
+        "Synchronize with Supabase",
+        "Close interaction"
+      ],
+      "no": [
+        "Record meal as not completed",
+        "Store response timestamp",
+        "Create caretaker alert",
+        "Close interaction"
+      ]
+    },
+
+    "task": {
+      "behavior": [
+        "Display task reminder",
+        "Show task title",
+        "Show optional description",
+        "Display for 15 seconds",
+        "Fade automatically",
+        "Return to normal screen"
+      ],
+      "patient_confirmation": false
+    },
+
+    "rehabilitation_game": {
+      "behavior": [
+        "Launch assigned game",
+        "Display instructions",
+        "Allow patient interaction",
+        "Record session",
+        "Record score where applicable",
+        "Synchronize result with Supabase"
+      ]
+    }
+  },
+
+  "patient_requests": {
+    "purpose": "Allow the patient to contact a caregiver at any time without typing.",
+
+    "availability": "Accessible from the P-kun home screen at all times.",
+
+    "preset_messages": [
+      {
+        "id": "HELP",
+        "label": "I need help",
+        "priority": "HIGH"
+      },
+      {
+        "id": "HUNGRY",
+        "label": "I'm hungry",
+        "priority": "NORMAL"
+      },
+      {
+        "id": "NOT_RIGHT",
+        "label": "Something isn't right",
+        "priority": "HIGH"
+      }
+    ],
+
+    "behavior": [
+      "Patient selects a preset message",
+      "P-kun sends request to Supabase",
+      "Caretaker dashboard receives the request",
+      "System creates an alert where appropriate",
+      "Request is stored in patient history",
+      "P-kun displays confirmation"
+    ]
+  },
+
+  "p_kun_integration": {
+    "initial_sync": [
+      "Authenticate device",
+      "Identify assigned patient",
+      "Retrieve relevant patient schedule",
+      "Cache upcoming events locally"
+    ],
+
+    "realtime_sync": [
+      "Listen for new care events",
+      "Listen for modified care events",
+      "Listen for caregiver messages",
+      "Receive relevant configuration changes"
+    ],
+
+    "response_sync": [
+      "Send patient responses",
+      "Send game results",
+      "Send patient requests",
+      "Send message acknowledgements"
+    ],
+
+    "heartbeat": {
+      "purpose": "Allow the caregiver dashboard to determine whether the device is online.",
+      "fields": [
+        "device_id",
+        "timestamp",
+        "app_version"
+      ],
+      "behavior": "Update devices.last_seen periodically without creating excessive database writes."
+    }
+  },
+
+  "offline_behavior": {
+    "purpose": "Prevent temporary network interruptions from making P-kun unusable.",
+    "local_storage": "SQLite",
+    "behavior": [
+      "Cache upcoming patient events locally",
+      "Continue executing locally cached events when temporarily offline",
+      "Store patient responses locally if Supabase is unavailable",
+      "Store game results locally if Supabase is unavailable",
+      "Queue outgoing data",
+      "Synchronize queued data when connectivity returns"
+    ],
+    "authority": "Supabase remains the authoritative system of record after synchronization."
+  },
+
+  "ui_requirements": {
+    "dashboard": {
+      "style": "Professional, clean healthcare dashboard",
+      "principles": [
+        "Clear information hierarchy",
+        "Readable typography",
+        "Simple navigation",
+        "Consistent components",
+        "Clear status indicators",
+        "Minimal unnecessary decoration",
+        "Responsive layout",
+        "Accessible color contrast"
+      ]
+    },
+
+    "calendar": {
+      "requirements": [
+        "Easy to scan",
+        "Clearly distinguish event types",
+        "Clearly display patient names in overall calendar",
+        "Clearly distinguish status",
+        "Easy event creation",
+        "Easy event editing",
+        "Support month/week/day views"
+      ]
+    },
+
+    "p_kun": {
+      "principles": [
+        "Large buttons",
+        "Large text",
+        "High contrast",
+        "Simple navigation",
+        "Minimal text",
+        "One major interaction at a time",
+        "No typing required",
+        "Easy to understand for elderly users"
+      ]
+    }
+  },
+
+  "p_kun_home_screen_requirements": {
+    "always_visible": [
+      "Current time",
+      "Current date",
+      "Next scheduled activity",
+      "Notification area",
+      "Contact Caretaker button"
+    ],
+
+    "contact_caretaker": {
+      "button": "Contact Caretaker",
+      "always_available": true
+    }
+  },
+
+  "demo_scenario": {
+    "primary_demo": [
+      "Caretaker logs into the platform",
+      "Caretaker opens a patient",
+      "Caretaker opens the patient's calendar",
+      "Caretaker creates a medicine or check-in event",
+      "Event is saved to Supabase",
+      "P-kun receives the event",
+      "P-kun displays the reminder",
+      "Patient interacts using the P-kun interface",
+      "Patient response is sent to Supabase",
+      "Caretaker dashboard updates",
+      "Patient history displays the response",
+      "If appropriate, an alert is generated",
+      "Caretaker sees and reviews the alert"
+    ],
+
+    "secondary_demo": [
+      "Caretaker sends a message",
+      "P-kun receives the message",
+      "Patient sees the message",
+      "Patient acknowledges it",
+      "Dashboard shows acknowledgement"
+    ],
+
+    "patient_request_demo": [
+      "Patient opens Contact Caretaker",
+      "Patient selects 'I need help'",
+      "P-kun sends the request",
+      "Caretaker dashboard receives the request in realtime",
+      "Urgent alert appears",
+      "Request is stored in patient history"
+    ],
+
+    "game_demo": [
+      "Caretaker assigns a rehabilitation game",
+      "Game appears in patient's schedule",
+      "P-kun launches the game",
+      "Patient plays",
+      "Score and duration are recorded",
+      "Caretaker can view the result"
+    ]
+  },
+
+  "development_phases": [
+    {
+      "phase": 1,
+      "name": "Project setup",
+      "tasks": [
+        "Initialize React application",
+        "Configure TypeScript",
+        "Configure Supabase client",
+        "Configure environment variables",
+        "Create project folder structure",
+        "Create reusable UI component structure"
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Database and security",
+      "tasks": [
+        "Create Supabase database migrations",
+        "Create all required tables",
+        "Create relationships",
+        "Create indexes",
+        "Configure RLS",
+        "Create authentication flow",
+        "Create demo seed data"
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Authentication",
+      "tasks": [
+        "Login page",
+        "Protected routes",
+        "Session management",
+        "Logout",
+        "Caregiver profile"
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Dashboard",
+      "tasks": [
+        "Dashboard overview",
+        "Today's events",
+        "Missed events",
+        "Alerts",
+        "Patient overview",
+        "Device status"
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "Patient management",
+      "tasks": [
+        "Patient list",
+        "Create patient",
+        "Edit patient",
+        "Patient profile",
+        "Profile photo",
+        "Caretaker-only care notes"
+      ]
+    },
+    {
+      "phase": 6,
+      "name": "Calendar",
+      "tasks": [
+        "Overall calendar",
+        "Patient calendar",
+        "Month view",
+        "Week view",
+        "Day view",
+        "Event filtering",
+        "Event creation",
+        "Event editing",
+        "Event status display"
+      ]
+    },
+    {
+      "phase": 7,
+      "name": "Care activities",
+      "tasks": [
+        "Daily check-ins",
+        "Medicine schedules",
+        "Meal schedules",
+        "Task reminders",
+        "Rehabilitation game assignments"
+      ]
+    },
+    {
+      "phase": 8,
+      "name": "Messages and patient requests",
+      "tasks": [
+        "Caretaker preset messages",
+        "Caretaker custom messages",
+        "Message acknowledgement",
+        "Patient preset requests",
+        "Request history"
+      ]
+    },
+    {
+      "phase": 9,
+      "name": "Alerts and history",
+      "tasks": [
+        "Alert generation",
+        "Alert dashboard",
+        "Alert review",
+        "Patient history",
+        "Filtering",
+        "Event history"
+      ]
+    },
+    {
+      "phase": 10,
+      "name": "Device management",
+      "tasks": [
+        "Device list",
+        "Pairing code generation",
+        "Device registration",
+        "Device-to-patient assignment",
+        "Device status",
+        "Last seen",
+        "Capabilities"
+      ]
+    },
+    {
+      "phase": 11,
+      "name": "Realtime integration",
+      "tasks": [
+        "Realtime care event updates",
+        "Realtime caregiver messages",
+        "Realtime patient responses",
+        "Realtime alerts",
+        "Realtime patient requests",
+        "Realtime device status"
+      ]
+    },
+    {
+      "phase": 12,
+      "name": "Testing",
+      "tasks": [
+        "Test authentication",
+        "Test RLS",
+        "Test patient CRUD",
+        "Test calendar CRUD",
+        "Test event creation",
+        "Test responses",
+        "Test alerts",
+        "Test realtime updates",
+        "Test device registration",
+        "Test end-to-end caregiver-to-P-kun workflow"
+      ]
+    }
+  ],
+
+  "project_structure": {
+    "recommended": [
+      "src/components",
+      "src/pages",
+      "src/layouts",
+      "src/features",
+      "src/hooks",
+      "src/lib",
+      "src/services",
+      "src/types",
+      "src/utils",
+      "src/styles",
+      "supabase/migrations",
+      "supabase/functions",
+      "supabase/seed"
+    ],
+    "feature_modules": [
+      "dashboard",
+      "patients",
+      "calendar",
+      "care-events",
+      "check-ins",
+      "medicines",
+      "meals",
+      "tasks",
+      "games",
+      "messages",
+      "alerts",
+      "history",
+      "devices"
+    ]
+  },
+
+  "implementation_rules": {
+    "build_real_functionality": true,
+    "avoid_mock_only_ui": true,
+    "persist_real_data": true,
+    "use_supabase_for_persistent_data": true,
+    "use_realtime_where_specified": true,
+    "use_reusable_components": true,
+    "use_typescript": true,
+    "avoid_unnecessary_dependencies": true,
+    "avoid_overengineering": true,
+    "keep_code_modular": true,
+    "keep_database_simple": true,
+    "document_non_obvious_architecture": true,
+    "do_not_build_unrequested_features": true,
+    "do_not_implement_formal_care_plans": true,
+    "do_not_implement_diagnosis": true,
+    "do_not_implement_complex_medical_records": true,
+    "do_not_implement_billing": true,
+    "do_not_implement_direct_pi_to_browser_networking": true,
+    "do_not_expose_caretaker_only_notes_to_pi": true
+  },
+
+  "acceptance_criteria": {
+    "authentication": [
+      "Caregiver can log in",
+      "Unauthorized users cannot access protected dashboard pages",
+      "Users are restricted to their organization"
+    ],
+
+    "patients": [
+      "Caregiver can create a patient",
+      "Caregiver can edit a patient",
+      "Caregiver can view a patient",
+      "Caregiver can store caretaker-only care notes",
+      "Care notes are not exposed to P-kun"
+    ],
+
+    "calendar": [
+      "Caregiver can view all patients' schedules",
+      "Caregiver can view one patient's schedule",
+      "Month/week/day views work",
+      "Events can be created",
+      "Events can be edited",
+      "Events display status",
+      "Events can be filtered"
+    ],
+
+    "care_events": [
+      "Daily check-ins can be configured",
+      "Medicine events can be configured",
+      "Meal events can be configured",
+      "Task reminders can be configured",
+      "Rehabilitation games can be assigned"
+    ],
+
+    "responses": [
+      "Patient responses are stored",
+      "Response timestamps are stored",
+      "Caretaker can view responses",
+      "Response history is available"
+    ],
+
+    "alerts": [
+      "Medicine NO response creates alert",
+      "Meal NO response creates alert",
+      "Configured concerning check-in response creates alert",
+      "Patient help request creates alert",
+      "Patient 'Something isn't right' request creates alert",
+      "Missed events can create alerts",
+      "Offline device can create an alert"
+    ],
+
+    "messaging": [
+      "Caretaker can send messages",
+      "P-kun can receive messages",
+      "Patient can acknowledge messages",
+      "Patient requests reach caretaker dashboard"
+    ],
+
+    "devices": [
+      "P-kun device can be registered",
+      "Device can be assigned to a patient",
+      "Device status is visible",
+      "Last-seen timestamp is visible"
+    ],
+
+    "realtime": [
+      "Dashboard receives patient responses without manual refresh",
+      "Dashboard receives patient requests without manual refresh",
+      "Dashboard receives alerts without manual refresh",
+      "P-kun can receive new relevant events through Supabase"
+    ],
+
+    "end_to_end": [
+      "A caregiver can create an event",
+      "The event reaches the appropriate patient device",
+      "The patient can interact with the event",
+      "The response is stored",
+      "The caregiver can see the response",
+      "The complete workflow works using real Supabase data"
+    ]
+  },
+
+  "final_instruction_to_astra": {
+    "priority": "Build a reliable functional prototype rather than a visually impressive mockup.",
+    "first_step": "Before implementing UI, establish the database schema, relationships, authentication and RLS policies.",
+    "second_step": "Build the React application against the real Supabase backend.",
+    "third_step": "Implement the caregiver workflows and calendar.",
+    "fourth_step": "Implement realtime functionality and prepare the backend for P-kun integration.",
+    "fifth_step": "Test the complete data loop.",
+    "development_behavior": [
+      "Work incrementally.",
+      "Do not rewrite the architecture unnecessarily.",
+      "Do not introduce complex abstractions without a concrete requirement.",
+      "Use real database operations rather than mock data once the database is available.",
+      "Keep components modular.",
+      "Keep the application easy to understand and maintain.",
+      "When a requirement is ambiguous, prefer the simplest implementation consistent with the specification.",
+      "Prioritize the features required for the end-to-end demonstration."
+    ],
+    "success_definition": "The project is successful when a caregiver can log into the dashboard, manage a patient, create a scheduled activity from the calendar, have that activity become available to P-kun, receive a patient response, and see the response or resulting alert appear back on the caregiver dashboard."
+  }
+}
