@@ -26,6 +26,20 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 Only the browser-safe **publishable** key goes here. Never put the service-role key in this app.
 
+## Free GitHub Pages deployment
+
+The public repository deploys the dashboard automatically with GitHub Actions after changes to
+`dashboard/` land on `main`. Add these repository secrets once under **Settings → Secrets and
+variables → Actions**:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+After the first successful workflow, the dashboard is available at
+`https://firm655.github.io/pkunassistrobot/`. Anyone with repository write access can edit the
+dashboard and push a change; GitHub rebuilds and publishes it automatically. The service-role key
+must never be added as a secret or bundled into the browser app.
+
 ## First login (one-time backend setup)
 
 The database starts empty, and a Supabase Auth user is **not** a caregiver until a profile is provisioned.
