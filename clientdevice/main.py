@@ -2,7 +2,7 @@
 """P-kun patient device app (Raspberry Pi / VM / laptop).
 
     python3 main.py            start the app
-    python3 main.py --reset    forget the local cache and outbox (keeps .env), then start
+    python3 main.py --reset    forget the local cache, outbox and pairing (keeps .env), then start
 """
 import logging
 import os
@@ -47,7 +47,7 @@ def main():
             path = cfg.data_dir / name
             if path.exists():
                 path.unlink()
-        print("Local cache and outbox cleared.")
+        print("Local cache, outbox and pairing cleared. Revoke this P-kun on the dashboard; it will ask for a new code.")
     setup_logging(cfg.data_dir)
     configure_kivy(cfg)
     from pkun.ui.app import PkunApp

@@ -24,3 +24,7 @@ enable_confirmations = true
 
 [realtime]
 enabled = true
+
+# Unpaired P-kun devices have no session yet; the pairing code is the credential (checked in the function).
+[functions.claim-device]
+verify_jwt = false

@@ -10,16 +10,39 @@ Python 3.10 or newer.
 cd clientdevice
 python3 -m venv venv && source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env                                  # then fill in PKUN_EMAIL / PKUN_PASSWORD
+cp .env.example .env                                  # the defaults are enough
 python3 main.py
 ```
 
-- **First start:** if the device account isn't paired yet, the setup screen opens. On the caretaker dashboard, go to Devices and create a pairing code. Type the 6 digits on the on-screen keypad (or a keyboard or numpad) and press OK.
-- **Pairing works once per account.** Each device account can be paired only once, and a revoked device needs a new account.
-- **Kiosk mode on the Pi:** set `PKUN_FULLSCREEN=1`.
-- **Thai or Japanese text:** set `PKUN_FONT` to a Noto font. The default font can't draw those characters.
-- **Start again:** `python3 main.py --reset` clears the local cache and outbox.
-- **Tests** (no screen or network needed): `python3 -m unittest discover -s tests -v`
+## Pairing a new P-kun (no email needed)
+
+1. **Once per Supabase project:** apply `supabase/migrations/202609240003_device_claims.sql` and deploy the `claim-device` Edge Function. See the repo's `supabase/functions/claim-device/index.ts`.
+2. Start the app on the new Pi. With no email in `.env`, it opens the **Set up P-kun** screen.
+3. On the caretaker dashboard, go to Devices and create a pairing code. Type the 6 digits on the Pi and press OK.
+4. The Pi sends **only the code** to the `claim-device` function. For a valid code, the server:
+   - creates the Pi's own account, with an internal address like `device-…@devices.pkun.invalid` that can never receive mail, already confirmed, and a long random password;
+   - registers the device;
+   - sends the login back.
+
+   The Pi saves the login in `data/pkun.db` (a folder only the Pi's user can read) and signs in with it from then on. An admin then assigns a patient on the dashboard.
+
+Why this is safe:
+- Public sign-ups and anonymous sign-ins stay off. Without a valid code from an administrator, no account is created.
+- Wrong codes create nothing. They are limited to 5 per network address and 30 in total every 10 minutes.
+- The server key that creates accounts stays inside the Edge Function and never reaches the Pi.
+- Every Pi still has its own account, so all existing security rules and revoking work unchanged.
+
+What happens when:
+- **Restarts:** the Pi keeps its login and stays paired.
+- **Removed Pi:** if staff revoke it on the dashboard, it shows the setup screen, and a new code gives it a new account. The old account can be deleted in Supabase under Authentication → Users. Its address starts with `device-`.
+- **Lost login:** if `data/` is deleted, `--reset` is used or the SD card is re-imaged, the Pi asks for a code again. Revoke its old entry on the dashboard.
+- **Old email method:** setting `PKUN_EMAIL` and `PKUN_PASSWORD` in `.env` still uses a hand-made account and the old `pair_device` call.
+
+Other options:
+- **Kiosk mode:** set `PKUN_FULLSCREEN=1`.
+- **Thai or Japanese text:** set `PKUN_FONT` to a Noto font.
+- **Start again:** `python3 main.py --reset` clears the local cache, outbox and the Pi's login, so it has to pair again.
+- **Tests:** `python3 -m unittest discover -s tests -v`
 
 ## Screens
 
@@ -29,7 +52,7 @@ python3 main.py
 | Notification | One interaction at a time: medicine and meal (Yes/No), daily check-in (the configured answers), task reminder (shown for 15 s, then fades out and sends `DISPLAYED`), caregiver message (OK, which acknowledges it). |
 | Contact caretaker | *I need help* / *I'm hungry* / *Something isn't right*, followed by a confirmation. |
 | Games | Number game, Which way?, Color game (see below). |
-| Setup | Pairing with the 6-digit code. |
+| Setup | Pairing with the 6-digit code (first start, or after the Pi was removed). |
 
 ## Notifications override everything
 

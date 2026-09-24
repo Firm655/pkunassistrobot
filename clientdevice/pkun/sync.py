@@ -15,7 +15,7 @@ import time
 import uuid
 from datetime import timedelta
 
-from .api import ApiError, AuthError, NetworkError, PkunApi
+from .api import ApiError, AuthError, NetworkError, NotSignedIn, PkunApi
 from .realtime import RealtimeListener
 from .timeutil import iso, utcnow
 
@@ -31,7 +31,7 @@ WINDOW_AHEAD = timedelta(hours=48)
 class SyncEngine:
     def __init__(self, cfg, store, robot=None, api=None, on_change=None, realtime=True):
         self.cfg, self.store, self.robot = cfg, store, robot
-        self.api = api or PkunApi(cfg.supabase_url, cfg.publishable_key, cfg.email, cfg.password)
+        self.api = api or PkunApi(cfg.supabase_url, cfg.publishable_key, cfg.email, cfg.password, token_store=store)
         self.on_change = on_change or (lambda: None)
         self._q: queue.Queue = queue.Queue()
         self._stop = threading.Event()
@@ -147,6 +147,9 @@ class SyncEngine:
                 log.info("offline: %s", e)
                 self._set_online(False, "")
                 next_reconcile = time.monotonic() + OFFLINE_RETRY_EVERY
+            except NotSignedIn:
+                self._lost_identity()
+                next_reconcile = time.monotonic() + RECONCILE_EVERY
             except AuthError as e:
                 self._set_state("auth_failed", f"Cannot sign in ({e.message}). Check PKUN_EMAIL / PKUN_PASSWORD.")
                 self._set_online(True)
@@ -171,14 +174,30 @@ class SyncEngine:
         if message is not None:
             self.message = message
 
+    def _lost_identity(self):
+        """No usable device account: the only way back is pairing with a new code."""
+        had_device = self.store.get("device_id") is not None
+        self.store.set("device_id", None)
+        self._set_state("unpaired", "P-kun needs to be paired again." if had_device else "")
+        self._assign(None, None, None)
+
     def _pair(self, code, callback) -> bool:
         try:
-            device_id = self.api.pair_device(code, self.cfg.device_name)
+            if self.api.claimed:
+                # The server checks the code and creates this Pi's own account (no email needed).
+                device_id = self.api.claim_device(code, self.cfg.device_name)
+            else:
+                device_id = self.api.pair_device(code, self.cfg.device_name)
+        except NotSignedIn:
+            callback(False, "Could not start pairing. Please try again.")
+            return False
         except NetworkError:
             callback(False, "No internet connection. Check the network and try again.")
             raise
         except AuthError as e:
             callback(False, f"This P-kun cannot sign in: {e.message}")
+            if self.api.claimed:
+                return False      # stay on the pairing screen
             raise
         except ApiError as e:
             callback(False, e.message)
@@ -191,6 +210,9 @@ class SyncEngine:
         return True
 
     def _reconcile(self):
+        # 0. A Pi that was never paired (no device login yet) has nothing to sync.
+        if not self.api.has_identity:
+            raise NotSignedIn("not paired")
         # 1. Auth + assignment
         try:
             ctx = self.api.device_context()
@@ -199,7 +221,8 @@ class SyncEngine:
                 raise
             revoked = self.store.get("device_id") is not None
             self._set_state("revoked" if revoked else "unpaired",
-                            "This P-kun was removed from the care team." if revoked else "")
+                            "This P-kun was removed from the care team. Enter a new code to pair it again."
+                            if revoked else "")
             self._set_online(True)
             self._assign(None, None, None)
             return

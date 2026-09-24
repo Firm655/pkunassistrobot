@@ -141,10 +141,12 @@ class SetupScreen(KeyScreen):
     def set_status(self, status):
         state = status.get("state")
         if state == "revoked":
-            self.info.text = ("This P-kun was removed. A removed P-kun needs a new device account "
-                              "before it can be paired again.")
+            self.info.text = ("This P-kun was removed from the care team. "
+                              "Enter a new 6-digit code to pair it again.")
         elif state == "auth_failed":
             self.info.text = status.get("message") or "Cannot sign in."
+        elif status.get("message"):
+            self.info.text = status["message"] + "\nEnter the 6-digit code from the caretaker dashboard."
         else:
             self.info.text = "Enter the 6-digit code shown on the caretaker dashboard (Devices page)."
 

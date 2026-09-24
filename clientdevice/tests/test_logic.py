@@ -141,6 +141,9 @@ class PresenterTests(unittest.TestCase):
 
 
 class FakeApi:
+    claimed = False            # behaves like an email-account Pi
+    has_identity = True
+
     def __init__(self):
         self.calls, self.offline, self.fail_with = [], False, None
         self.access_token = "t"
@@ -227,3 +230,168 @@ class OutboxTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ------------------------------------------------------------------------ pairing without email accounts
+from pkun.api import AuthError, NotSignedIn, PkunApi  # noqa: E402
+
+
+class ClaimFakeApi(FakeApi):
+    """FakeApi for a Pi paired by code: the 'server' creates one account per successful claim."""
+
+    def __init__(self):
+        super().__init__()
+        self.claimed = True
+        self.login = None
+        self.accounts_created = 0
+        self.valid_code = "482913"
+        self.revoked = False
+
+    @property
+    def has_identity(self):
+        return self.login is not None
+
+    def claim_device(self, code, name):
+        if code != self.valid_code:
+            raise ApiError(400, "Wrong or expired code. Ask for a new code and try again.")
+        self.accounts_created += 1
+        self.login = f"device-{self.accounts_created}"
+        self.revoked = False
+        return f"device-id-{self.accounts_created}"
+
+    def device_context(self):
+        if self.revoked:
+            raise ApiError(403, "Device authentication required", "42501")
+        return super().device_context()
+
+
+class CodePairingTests(unittest.TestCase):
+    def setUp(self):
+        cfg = SimpleNamespace(supabase_url="https://x", publishable_key="k", email=None, password=None,
+                              device_name="P-kun", app_version="test")
+        self.store, self.api = Store(":memory:"), ClaimFakeApi()
+        self.engine = SyncEngine(cfg, self.store, api=self.api, realtime=False)
+        self.results = []
+        self.cb = lambda ok, msg: self.results.append((ok, msg))
+
+    def test_new_pi_is_unpaired_without_network(self):
+        with self.assertRaises(NotSignedIn):
+            self.engine._reconcile()
+        self.engine._lost_identity()
+        self.assertEqual(self.engine.state, "unpaired")
+        self.assertEqual(self.api.calls, [])
+
+    def test_wrong_code_creates_no_account(self):
+        self.assertFalse(self.engine._pair("000000", self.cb))
+        self.assertEqual(self.api.accounts_created, 0)
+        self.assertIn("Wrong or expired", self.results[-1][1])
+        self.assertTrue(self.engine._pair("482913", self.cb))
+        self.assertEqual(self.store.get("device_id"), "device-id-1")
+        self.engine._reconcile()
+        self.assertEqual(self.engine.state, "ready")
+
+    def test_removed_pi_pairs_again_with_a_new_code(self):
+        self.engine._pair("482913", self.cb)
+        self.engine._reconcile()
+        self.api.revoked = True
+        self.engine._reconcile()
+        self.assertEqual(self.engine.state, "revoked")
+        self.assertIsNone(self.store.event("e1"))           # old patient's data cleared
+        self.assertTrue(self.engine._pair("482913", self.cb))
+        self.engine._reconcile()
+        self.assertEqual((self.engine.state, self.api.accounts_created), ("ready", 2))
+
+
+class FakeResponse:
+    def __init__(self, status, body):
+        import json
+        self.status_code, self._body = status, body
+        self.headers, self.reason = {}, ""
+        self.text = json.dumps(body)
+        self.content = self.text.encode()
+
+    def json(self):
+        return self._body
+
+
+def fake_server(routes):
+    """routes: {path: FakeResponse or callable(kwargs)}; records calls."""
+    calls = []
+
+    def request(method, path, **kw):
+        calls.append((path, kw.get("params"), kw.get("json")))
+        r = routes[path]
+        return r(kw) if callable(r) else r
+    return request, calls
+
+
+class DeviceLoginTests(unittest.TestCase):
+    def test_claim_stores_login_and_survives_restart(self):
+        store = Store(":memory:")
+        api = PkunApi("https://x", "k", token_store=store)
+        self.assertTrue(api.claimed)
+        self.assertFalse(api.has_identity)
+        with self.assertRaises(NotSignedIn):
+            api.ensure_session()
+        api._request, calls = fake_server({"/functions/v1/claim-device": FakeResponse(
+            200, {"device_id": "d1", "email": "device-1@devices.pkun.invalid", "password": "p" * 48})})
+        self.assertEqual(api.claim_device("482 913", "Ward 3"), "d1")
+        self.assertEqual(calls[0][2], {"pairing_code": "482 913", "device_name": "Ward 3"})
+        self.assertEqual(store.get("device_email"), "device-1@devices.pkun.invalid")
+        # "Restart": a new client reads the stored login and signs in with it.
+        api2 = PkunApi("https://x", "k", token_store=store)
+        self.assertTrue(api2.has_identity)
+        api2._request, calls2 = fake_server({"/auth/v1/token": FakeResponse(
+            200, {"access_token": "a", "refresh_token": "r", "expires_in": 3600})})
+        api2.ensure_session()
+        self.assertEqual(calls2[0][1], {"grant_type": "password"})
+        self.assertEqual(calls2[0][2]["email"], "device-1@devices.pkun.invalid")
+        self.assertEqual(store.get("refresh_token"), "r")
+
+    def test_lost_refresh_token_falls_back_to_device_login(self):
+        store = Store(":memory:")
+        for k, v in (("device_email", "d@devices.pkun.invalid"), ("device_password", "pw"), ("refresh_token", "old")):
+            store.set(k, v)
+        api = PkunApi("https://x", "k", token_store=store)
+
+        def token(kw):
+            if kw["params"]["grant_type"] == "refresh_token":
+                return FakeResponse(400, {"message": "Invalid Refresh Token: Already Used"})
+            return FakeResponse(200, {"access_token": "a2", "refresh_token": "r2"})
+        api._request, calls = fake_server({"/auth/v1/token": token})
+        api.ensure_session()
+        self.assertEqual([c[1]["grant_type"] for c in calls], ["refresh_token", "password"])
+        self.assertEqual(api.access_token, "a2")
+
+    def test_deleted_device_account_means_pair_again(self):
+        store = Store(":memory:")
+        store.set("device_email", "d@devices.pkun.invalid")
+        store.set("device_password", "pw")
+        api = PkunApi("https://x", "k", token_store=store)
+        api._request, _ = fake_server({"/auth/v1/token": FakeResponse(400, {"message": "Invalid login credentials"})})
+        with self.assertRaises(NotSignedIn):
+            api.ensure_session()
+        self.assertIsNone(store.get("device_email"))
+
+    def test_claim_errors_are_readable(self):
+        api = PkunApi("https://x", "k", token_store=Store(":memory:"))
+        api._request, _ = fake_server({"/functions/v1/claim-device": FakeResponse(
+            429, {"error": "Too many wrong codes. Wait 10 minutes and try again."})})
+        with self.assertRaises(ApiError) as ctx:
+            api.claim_device("000000", "P-kun")
+        self.assertIn("Too many wrong codes", ctx.exception.message)
+        self.assertTrue(ctx.exception.retryable)
+        api._request, _ = fake_server({"/functions/v1/claim-device": FakeResponse(404, {"message": "not found"})})
+        with self.assertRaises(ApiError) as ctx:
+            api.claim_device("123456", "P-kun")
+        self.assertIn("deploy the claim-device function", ctx.exception.message)
+
+    def test_email_mode_still_supported(self):
+        store = Store(":memory:")
+        api = PkunApi("https://x", "k", "pi@example.com", "secret", token_store=store)
+        self.assertFalse(api.claimed)
+        api._request, calls = fake_server({"/auth/v1/token": FakeResponse(200, {"access_token": "a", "refresh_token": "r"})})
+        api.ensure_session()
+        self.assertEqual(calls[0][2]["email"], "pi@example.com")
+        api.forget_identity()
+        self.assertEqual(api.email, "pi@example.com")      # .env login is never forgotten

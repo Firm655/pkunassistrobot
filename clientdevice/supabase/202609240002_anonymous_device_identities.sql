@@ -1,0 +1,4 @@
+-- SUPERSEDED - safe to delete this file and the clientdevice/supabase folder.
+-- P-kun no longer uses anonymous sign-ins. Pairing now goes through the claim-device Edge Function:
+-- see supabase/migrations/202609240003_device_claims.sql and supabase/functions/claim-device/ in the repo.
+-- Do NOT run anything here, and leave "Allow anonymous sign-ins" turned off in Supabase.
