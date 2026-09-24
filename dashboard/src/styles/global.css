@@ -1,6 +1,6 @@
 /* P-kun Care dashboard — plain CSS with design tokens. */
 :root {
-  --bg: #f4f6f8;
+  --bg: #ffffff;
   --surface: #ffffff;
   --surface-2: #f8fafb;
   --border: #e2e8ee;
@@ -16,11 +16,11 @@
   --warning: #b45309; --warning-bg: #fdf1e1;
   --danger: #b91c1c;  --danger-bg: #fdeaea;
   --neutral-bg: #eef1f4;
-  --radius: 10px;
+  --radius: 6px;
   --radius-sm: 6px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
+  --shadow: none;
   --shadow-lg: 0 12px 32px rgba(16, 24, 40, .18);
-  --sidebar-w: 236px;
+  --sidebar-w: 220px;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Thai', sans-serif;
   font-size: 15px;
   line-height: 1.45;
@@ -45,6 +45,7 @@ textarea { resize: vertical; min-height: 60px; }
 input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 input:disabled, select:disabled { background: var(--surface-2); color: var(--muted); }
 input[type='checkbox'] { width: auto; min-height: 0; accent-color: var(--primary); }
+
 
 /* ---------- helpers ---------- */
 .muted { color: var(--muted); }

@@ -88,7 +88,7 @@ export default function PatientProfilePage() {
               <dd>{device ? <span className="row gap-sm">{device.device_name} <DeviceStatusDot status={effectiveDeviceStatus(device)} /> <span className="muted small">last seen {timeAgo(device.last_seen)}</span></span> : <Link to="/devices">Assign a device</Link>}</dd>
             </dl>
           </Card>
-          <Card title="🔒 Care notes" className="card-private" actions={<Link to={`/patients/${p.id}/edit`} className="link">Edit</Link>}>
+          <Card title="Private care notes" className="card-private" actions={<Link to={`/patients/${p.id}/edit`} className="link">Edit</Link>}>
             <p className="note">Caretaker-only. Never shown on P-kun.</p>
             {!hasCareNotes(p) ? <Empty>No care notes recorded.</Empty> : (
               <dl className="details">

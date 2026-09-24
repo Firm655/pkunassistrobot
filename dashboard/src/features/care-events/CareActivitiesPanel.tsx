@@ -86,7 +86,7 @@ function ScheduleSection({ table, patientId, version, onEdit, onChanged }: {
 
   return (
     <Card
-      title={<>{meta.icon} {meta.label === 'Daily check-in' ? 'Daily check-ins' : meta.label === 'Task reminder' ? 'Task reminders' : `${meta.label}s`}</>}
+      title={meta.label === 'Daily check-in' ? 'Daily check-ins' : meta.label === 'Task reminder' ? 'Task reminders' : `${meta.label}s`}
       actions={
         <>
           {table === 'meals' && data && data.length === 0 && (

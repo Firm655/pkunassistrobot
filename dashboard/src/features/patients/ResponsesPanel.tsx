@@ -28,8 +28,8 @@ export function ResponsesPanel({ patientId }: { patientId: string }) {
       <ErrorBox error={events.error} />
       {events.loading ? <Spinner /> : (
         <div className="grid-2">
-          <AdherenceCard title="💊 Medicine adherence" type="MEDICINE" events={all} days={days} yes="Taken" no="Not taken" />
-          <AdherenceCard title="🍽️ Meal responses" type="MEAL" events={all} days={days} yes="Eaten" no="Not eaten" />
+          <AdherenceCard title="Medicine adherence" type="MEDICINE" events={all} days={days} yes="Taken" no="Not taken" />
+          <AdherenceCard title="Meal responses" type="MEAL" events={all} days={days} yes="Eaten" no="Not eaten" />
           <Card title="Recent responses" actions={<span className="muted small">Last {DAYS} days</span>}>
             {responded.length === 0 ? <Empty>No responses yet.</Empty> : (
               <ul className="event-list">{responded.slice(0, 12).map((e) => <EventRow key={e.id} event={e} onOpen={setOpenId} showPatient={false} showDate />)}</ul>

@@ -117,7 +117,7 @@ export default function PatientFormPage() {
             <Field label="Phone"><input type="tel" value={form.emergency_contact.phone ?? ''} onChange={(e) => set('emergency_contact', { ...form.emergency_contact, phone: e.target.value })} /></Field>
           </div>
         </Card>
-        <Card title={<>🔒 Care notes</>} className="card-private">
+        <Card title="Private care notes" className="card-private">
           <p className="note">Private caretaker information. Never sent to or shown on P-kun.</p>
           <div className="form-grid">
             {CARE_NOTE_FIELDS.map(([key, label]) => (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Bot } from 'lucide-react';
 import { useCaregiver } from '@/contexts/AuthContext';
 import { useReferenceData } from '@/contexts/ReferenceDataContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -76,7 +77,7 @@ function DeviceCard({ d, tz, isAdmin, busy, patients, onAssign, onRename, onRevo
   const caps = Object.entries(d.capabilities ?? {}).filter(([, v]) => v);
   const status = effectiveDeviceStatus(d);
   return (
-    <Card className={d.revoked_at ? 'card-muted' : ''} title={<span className="row gap-sm">🤖 {d.device_name}</span>}
+    <Card className={d.revoked_at ? 'card-muted' : ''} title={<span className="row gap-sm"><Bot size={18} /> {d.device_name}</span>}
       actions={d.revoked_at ? <Badge tone="muted">Revoked</Badge> : <DeviceStatusDot status={status} />}>
       <dl className="details">
         <dt>Assigned patient</dt>

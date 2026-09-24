@@ -9,7 +9,7 @@ import type { DatesSetArg, EventClickArg, EventContentArg } from '@fullcalendar/
 import type { DateClickArg } from '@fullcalendar/interaction';
 import { useData } from '@/hooks/useData';
 import { useReferenceData } from '@/contexts/ReferenceDataContext';
-import { ErrorBox } from '@/components/ui';
+import { ErrorBox, EventTypeIcon } from '@/components/ui';
 import { EVENT_STATUSES, EVENT_TYPES, EVENT_TYPE_META, STATUS_META } from '@/lib/constants';
 import { eventTitle } from '@/utils/format';
 import { addDays } from '@/utils/dates';
@@ -79,7 +79,7 @@ export function CareCalendar({ patientId, height = 'auto' }: { patientId?: strin
     return (
       <div className={`ev ${isList ? 'ev-list' : ''}`} title={`${EVENT_TYPE_META[e.event_type].label} · ${STATUS_META[e.status].label}${patient ? ` · ${patient.name}` : ''}`}>
         <span className="ev-time">{arg.timeText}</span>
-        <span className="ev-icon" aria-hidden>{EVENT_TYPE_META[e.event_type].icon}</span>
+        <span className="ev-icon" aria-hidden><EventTypeIcon type={e.event_type} /></span>
         <span className="ev-title">
           {!patientId && patient && <strong className="ev-patient">{patient.name.split(' ')[0]}: </strong>}
           {arg.event.title}

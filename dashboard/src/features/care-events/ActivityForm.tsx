@@ -97,7 +97,7 @@ export function ActivityFormModal({ mode, onClose, onSaved }: { mode: ActivityFo
             const t = e.target.value as EventType;
             setForm((f) => ({ ...f, event_type: t, time: t === 'MEAL' ? DEFAULT_MEAL_TIMES[f.meal_type] : f.time }));
           }}>
-            {EVENT_TYPES.map((t) => <option key={t} value={t}>{EVENT_TYPE_META[t].icon} {EVENT_TYPE_META[t].label}</option>)}
+            {EVENT_TYPES.map((t) => <option key={t} value={t}>{EVENT_TYPE_META[t].label}</option>)}
           </select>
         </Field>
         <Field label={form.recurrence === 'ONCE' ? 'Date' : 'Start date'}>
@@ -120,7 +120,7 @@ export function ActivityFormModal({ mode, onClose, onSaved }: { mode: ActivityFo
         )}
       </div>
 
-      <h3 className="section-title">{EVENT_TYPE_META[form.event_type].icon} {EVENT_TYPE_META[form.event_type].label} details</h3>
+      <h3 className="section-title">{EVENT_TYPE_META[form.event_type].label} details</h3>
       <p className="muted small">These details are shown to the patient on P-kun. Do not enter private care notes here.</p>
       <div className="form-grid">
         {form.event_type === 'DAILY_CHECK_IN' && <CheckInFields form={form} setForm={setForm} />}

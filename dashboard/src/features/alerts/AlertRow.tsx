@@ -8,7 +8,7 @@ import { formatDateTime, timeAgo } from '@/utils/dates';
 import type { Alert } from '@/types/db';
 import { reviewAlert } from './api';
 
-export function AlertRow({ alert: a, onOpenEvent, compact }: { alert: Alert; onOpenEvent?: (id: string) => void; compact?: boolean }) {
+export function AlertRow({ alert: a, onOpenEvent, compact, onReviewed }: { alert: Alert; onOpenEvent?: (id: string) => void; compact?: boolean; onReviewed?: () => void }) {
   const { tz } = useCaregiver();
   const { patientMap, profileMap } = useReferenceData();
   const [busy, setBusy] = useState(false);
@@ -16,7 +16,7 @@ export function AlertRow({ alert: a, onOpenEvent, compact }: { alert: Alert; onO
   const patient = a.patient_id ? patientMap.get(a.patient_id) : undefined;
   const review = async () => {
     setBusy(true);
-    try { await reviewAlert(a.id); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    try { await reviewAlert(a.id); setErr(null); onReviewed?.(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
   return (
     <li className={`alert-row prio-${a.priority.toLowerCase()} ${a.reviewed ? 'reviewed' : ''}`}>

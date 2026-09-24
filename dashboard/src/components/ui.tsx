@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { MessageCircle, Pill, Utensils, ClipboardList } from 'lucide-react';
 import { EVENT_TYPE_META, PRIORITY_META, STATUS_META, type Tone } from '@/lib/constants';
 import type { EventStatus, EventType, Patient, Priority } from '@/types/db';
 import { initials } from '@/utils/format';
@@ -22,9 +23,14 @@ export function EventTypeTag({ type, short }: { type: EventType; short?: boolean
   const m = EVENT_TYPE_META[type];
   return (
     <span className="type-tag" style={{ ['--tag' as string]: m.color }}>
-      <span aria-hidden>{m.icon}</span> {short ? m.short : m.label}
+      <EventTypeIcon type={type} /> {short ? m.short : m.label}
     </span>
   );
+}
+
+export function EventTypeIcon({ type }: { type: EventType }) {
+  const Icon = { DAILY_CHECK_IN: MessageCircle, MEDICINE: Pill, MEAL: Utensils, TASK: ClipboardList }[type];
+  return <Icon size={13} aria-hidden />;
 }
 
 export function Card({ title, actions, children, className = '', pad = true }: {

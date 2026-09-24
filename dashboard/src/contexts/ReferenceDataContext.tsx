@@ -13,6 +13,7 @@ interface ReferenceData {
   deviceByPatient: Map<string, Device>;
   profileMap: Map<string, Profile>;
   loading: boolean;
+  error: string | null;
   reloadPatients: () => void;
   reloadProfiles: () => void;
 }
@@ -33,11 +34,12 @@ export function ReferenceDataProvider({ children }: { children: ReactNode }) {
       patientMap: new Map(p.map((x) => [x.id, x])),
       deviceByPatient: new Map(d.filter((x) => x.assigned_patient_id).map((x) => [x.assigned_patient_id!, x])),
       profileMap: new Map(pr.map((x) => [x.id, x])),
-      loading: patients.loading,
+      loading: patients.loading || devices.loading,
+      error: patients.error || devices.error,
       reloadPatients: patients.reload,
       reloadProfiles: profiles.reload,
     };
-  }, [patients.data, devices.data, profiles.data, patients.loading, patients.reload, profiles.reload]);
+  }, [patients.data, devices.data, profiles.data, patients.loading, devices.loading, patients.error, devices.error, patients.reload, profiles.reload]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

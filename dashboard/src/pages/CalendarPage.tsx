@@ -4,7 +4,7 @@ import { CareCalendar } from '@/features/calendar/CareCalendar';
 export default function CalendarPage() {
   return (
     <>
-      <PageHeader title="Calendar" subtitle="All patients' care schedules. Click a day to add an event, or an event to view and edit it." />
+      <PageHeader title="Calendar" subtitle="Care schedules across your team" />
       <Card><CareCalendar /></Card>
     </>
   );
