@@ -29,8 +29,9 @@ Only the browser-safe **publishable** key goes here. Never put the service-role 
 ## Free GitHub Pages deployment
 
 The public repository deploys the dashboard automatically with GitHub Actions after changes to
-`dashboard/` land on `main`. Add these repository secrets once under **Settings → Secrets and
-variables → Actions**:
+`dashboard/` land on `main`. The workflow includes the browser-safe project URL and publishable key,
+so it works without extra account setup. You can override them with repository secrets under
+**Settings → Secrets and variables → Actions**:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
