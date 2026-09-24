@@ -5,7 +5,7 @@ from datetime import timedelta
 from types import SimpleNamespace
 
 from pkun.api import ApiError, NetworkError
-from pkun.game_logic import MemoryGame, wheel_step
+from pkun.game_logic import OPPOSITE, ColorGame, DirectionGame, MemoryGame, wheel_step
 from pkun.presenter import pending_items, still_valid
 from pkun.store import Store
 from pkun.sync import SyncEngine
@@ -52,6 +52,58 @@ class GameTests(unittest.TestCase):
         g.submit(seq[0])
         g.restart_round()
         self.assertEqual((g.sequence, g.position), (seq, 0))
+
+
+class DirectionGameTests(unittest.TestCase):
+    def test_rules_start_with_same_and_include_opposite(self):
+        for seed in range(20):
+            g = DirectionGame(rng=random.Random(seed))
+            self.assertEqual(g.rules[0], "same")
+            self.assertIn("opposite", g.rules)
+
+    def test_same_and_opposite_scoring(self):
+        g = DirectionGame(rounds=2, trials_per_round=2, rng=random.Random(4))
+        g.rules = ["same", "opposite"]
+        face = g.next_face()
+        self.assertTrue(g.answer(face))
+        face = g.next_face()
+        self.assertFalse(g.answer(OPPOSITE[face]))
+        self.assertTrue(g.round_over)
+        g.next_round()
+        face = g.next_face()
+        self.assertTrue(g.answer(OPPOSITE[face]))
+        g.next_face()
+        self.assertFalse(g.answer(None))           # too slow
+        g.next_round()
+        self.assertTrue(g.finished)
+        self.assertEqual((g.score, g.max_score), (2, 4))
+
+    def test_face_never_repeats_immediately(self):
+        g = DirectionGame(rng=random.Random(5))
+        faces = [g.next_face() for _ in range(50)]
+        self.assertTrue(all(a != b for a, b in zip(faces, faces[1:])))
+
+
+class ColorGameTests(unittest.TestCase):
+    def test_word_never_matches_box_and_both_are_options(self):
+        g = ColorGame(trials=200, rng=random.Random(6))
+        for _ in range(200):
+            bg, word, opts = g.new_trial()
+            self.assertNotEqual(bg, word)
+            self.assertIn(bg, opts)
+            self.assertIn(word, opts)
+            self.assertEqual(len(set(opts)), 4)
+            g.answer(bg)
+        self.assertTrue(g.finished)
+        self.assertEqual(g.correct, 200)
+
+    def test_choosing_the_word_is_counted(self):
+        g = ColorGame(trials=2, rng=random.Random(7))
+        _, word, _ = g.new_trial()
+        self.assertFalse(g.answer(word))
+        g.new_trial()
+        self.assertFalse(g.answer(None))
+        self.assertEqual((g.correct, g.picked_word, g.results), (0, 1, [False, False]))
 
 
 class PresenterTests(unittest.TestCase):
@@ -111,6 +163,21 @@ class FakeApi:
 
     def unacknowledged_messages(self, *a):
         return []
+
+
+class StoreTests(unittest.TestCase):
+    def test_old_game_table_is_upgraded(self):
+        import os, sqlite3, tempfile
+        path = os.path.join(tempfile.mkdtemp(), "old.db")
+        db = sqlite3.connect(path)
+        db.execute("""create table game_results(id integer primary key autoincrement, patient_id text,
+            game text not null, played_at text not null, score integer not null, best_length integer not null,
+            rounds_won integer not null, rounds_played integer not null)""")
+        db.commit()
+        db.close()
+        store = Store(path)
+        store.save_game_result(PID, "color_box", 8, max_score=10, details={"picked_word": 1})
+        self.assertEqual(store.best_score(PID, "color_box"), 8)
 
 
 class OutboxTests(unittest.TestCase):

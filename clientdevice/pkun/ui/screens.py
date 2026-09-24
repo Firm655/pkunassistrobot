@@ -45,20 +45,25 @@ class HomeScreen(Screen):
     def __init__(self, app, **kw):
         super().__init__(name="home", **kw)
         self.app = app
-        root = BoxLayout(orientation="vertical", padding=dp(16), spacing=dp(10))
+        root = BoxLayout(orientation="vertical", padding=dp(14), spacing=dp(8))
 
-        top = BoxLayout(size_hint_y=None, height=dp(40))
+        # Top: date/status on the left, Contact caretaker in the top-right corner (away from the games).
+        top = BoxLayout(size_hint_y=None, height=dp(76), spacing=dp(12))
+        left = BoxLayout(orientation="vertical")
         self.date_lbl = Text("", 24, halign="left")
-        self.conn_lbl = Text("", 18, fg="muted", halign="right")
-        top.add_widget(self.date_lbl)
-        top.add_widget(self.conn_lbl)
+        self.conn_lbl = Text("", 18, fg="muted", halign="left")
+        left.add_widget(self.date_lbl)
+        left.add_widget(self.conn_lbl)
+        top.add_widget(left)
+        top.add_widget(BigButton("Contact caretaker", bg="danger", size=26, size_hint_x=None, width=dp(290),
+                                 on_release=lambda *_: app.go("contact")))
         root.add_widget(top)
 
-        self.time_lbl = Text("", 92, bold=True, size_hint_y=None, height=dp(110))
+        self.time_lbl = Text("", 84, bold=True, size_hint_y=None, height=dp(96))
         root.add_widget(self.time_lbl)
 
-        nxt = Card(orientation="vertical", size_hint_y=None, height=dp(92))
-        nxt.add_widget(Text("Next", 18, fg="muted", halign="left", size_hint_y=None, height=dp(22)))
+        nxt = Card(orientation="vertical", size_hint_y=None, height=dp(84))
+        nxt.add_widget(Text("Next", 18, fg="muted", halign="left", size_hint_y=None, height=dp(20)))
         self.next_lbl = Text("", 28, bold=True, halign="left")
         nxt.add_widget(self.next_lbl)
         root.add_widget(nxt)
@@ -66,10 +71,12 @@ class HomeScreen(Screen):
         self.notice_lbl = Text("", 20, fg="warn")  # notification area
         root.add_widget(self.notice_lbl)
 
-        buttons = BoxLayout(size_hint_y=None, height=dp(100), spacing=dp(12))
-        buttons.add_widget(BigButton("Contact caretaker", bg="danger", on_release=lambda *_: app.go("contact")))
-        buttons.add_widget(BigButton("Number game", bg="primary", on_release=lambda *_: app.open_game()))
-        root.add_widget(buttons)
+        games = BoxLayout(size_hint_y=None, height=dp(92), spacing=dp(10))
+        for label, screen, bg in (("Number game", "game_memory", "primary"),
+                                  ("Which way?", "game_faces", "ok"),
+                                  ("Color game", "game_colors", "warn")):
+            games.add_widget(BigButton(label, bg=bg, size=26, on_release=lambda b, n=screen: app.open_game(n)))
+        root.add_widget(games)
         self.add_widget(root)
 
     def update(self, now, status, next_event):

@@ -33,7 +33,8 @@ create table if not exists outbox(
 );
 create table if not exists game_results(
   id integer primary key autoincrement, patient_id text, game text not null, played_at text not null,
-  score integer not null, best_length integer not null, rounds_won integer not null, rounds_played integer not null
+  score integer not null, best_length integer not null, rounds_won integer not null, rounds_played integer not null,
+  max_score integer, details text
 );
 """
 
@@ -47,6 +48,10 @@ class Store:
             if str(path) != ":memory:":
                 self.db.execute("pragma journal_mode=wal")
             self.db.executescript(SCHEMA)
+            cols = {r[1] for r in self.db.execute("pragma table_info(game_results)")}
+            for col, kind in (("max_score", "integer"), ("details", "text")):  # upgrade older databases
+                if col not in cols:
+                    self.db.execute(f"alter table game_results add column {col} {kind}")
 
     # ---- helpers -----------------------------------------------------------------
     def _exec(self, sql, args=()):
@@ -185,10 +190,12 @@ class Store:
         return counts
 
     # ---- games (local only; the backend does not store games) ---------------------
-    def save_game_result(self, patient_id, game, score, best_length, rounds_won, rounds_played):
-        self._exec("""insert into game_results(patient_id,game,played_at,score,best_length,rounds_won,rounds_played)
-                      values(?,?,?,?,?,?,?)""",
-                   (patient_id, game, iso(utcnow()), score, best_length, rounds_won, rounds_played))
+    def save_game_result(self, patient_id, game, score, best_length=0, rounds_won=0, rounds_played=0,
+                         max_score=None, details=None):
+        self._exec("""insert into game_results(patient_id,game,played_at,score,best_length,rounds_won,rounds_played,
+                                                max_score,details) values(?,?,?,?,?,?,?,?,?)""",
+                   (patient_id, game, iso(utcnow()), score, best_length, rounds_won, rounds_played, max_score,
+                    json.dumps(details) if details is not None else None))
 
     def best_score(self, patient_id, game):
         row = self._row("select max(score) best from game_results where patient_id is ? and game=?",

@@ -11,7 +11,9 @@ from ..robot import RobotBridge
 from ..store import Store
 from ..sync import SyncEngine
 from ..timeutil import iso, utcnow
-from .game_screen import GameScreen
+from .games.colors import ColorGameScreen
+from .games.faces import FaceGameScreen
+from .games.memory import MemoryGameScreen
 from .screens import ContactScreen, HomeScreen, PromptScreen, SetupScreen
 from .theme import COLORS
 
@@ -39,8 +41,8 @@ class PkunApp(App):
         self.setup = SetupScreen(self)
         self.contact = ContactScreen(self)
         self.prompt = PromptScreen(self)
-        self.game = GameScreen(self)
-        for s in (self.home, self.setup, self.contact, self.prompt, self.game):
+        self.games = {g.name: g for g in (MemoryGameScreen(self), FaceGameScreen(self), ColorGameScreen(self))}
+        for s in (self.home, self.setup, self.contact, self.prompt, *self.games.values()):
             self.sm.add_widget(s)
         self.sm.current = "home"
         Clock.schedule_interval(self._tick, 1.0)
@@ -57,8 +59,8 @@ class PkunApp(App):
             return  # a notification is on screen; it decides where to go next
         self.sm.current = name
 
-    def open_game(self):
-        self.go("game")
+    def open_game(self, name):
+        self.go(name)
 
     # ---- engine state ------------------------------------------------------------------
     def _engine_changed(self):
@@ -93,9 +95,9 @@ class PkunApp(App):
 
     def _present(self, item):
         current = self.sm.current
-        if current == "game":
-            self.game.interrupt()        # notifications override the game
-            self.return_to = "game"
+        if current in self.games:
+            self.games[current].interrupt()   # notifications override every game
+            self.return_to = current
         elif current != "prompt":
             self.return_to = "home"
         self.active = item
@@ -131,10 +133,10 @@ class PkunApp(App):
         if items:
             self._present(items[0])
             return
-        self.sm.current = self.return_to
-        if self.return_to == "game":
-            self.game.resume()
-        self.return_to = "home"
+        back, self.return_to = self.return_to, "home"
+        self.sm.current = back
+        if back in self.games:
+            self.games[back].resume()
 
     def _drop_active(self):
         self.active = None

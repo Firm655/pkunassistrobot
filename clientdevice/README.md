@@ -25,10 +25,10 @@ python3 main.py
 
 | Screen | What it does |
 | --- | --- |
-| Home | Time, date, next activity, notification area, **Contact caretaker**, **Number game**. |
+| Home | Time, date, next activity and a notification area. **Contact caretaker** is in the top-right corner, and the three game buttons are along the bottom. |
 | Notification | One interaction at a time: medicine and meal (Yes/No), daily check-in (the configured answers), task reminder (shown for 15 s, then fades out and sends `DISPLAYED`), caregiver message (OK, which acknowledges it). |
 | Contact caretaker | *I need help* / *I'm hungry* / *Something isn't right*, followed by a confirmation. |
-| Number game | Remember the number (below). |
+| Games | Number game, Which way?, Color game (see below). |
 | Setup | Pairing with the 6-digit code. |
 
 ## Notifications override everything
@@ -37,16 +37,39 @@ Once a second the app checks the local cache for work that is due now:
 1. Unacknowledged caregiver messages, oldest first.
 2. Events whose `scheduled_at` has passed and whose `due_at` hasn't, in schedule order.
 
-If anything is due, it takes over the screen whatever the patient is doing. If the patient was playing the game, the game pauses. After the last notification the game resumes and **replays the same numbers from the start**, because nobody can remember digits across a medicine reminder. A notification closes on its own if the server skips it or it passes its deadline.
+If anything is due, it takes over the screen whatever the patient is doing, and any game pauses. After the last notification the patient goes back to the same game, which resumes as follows:
 
-## Remember the number
+| Game | After an interruption |
+| --- | --- |
+| Number game | Replays the **same numbers** from the start of the round. |
+| Which way? | Shows the round's **rule again**, then continues with the remaining faces. |
+| Color game | Skips the unanswered question (not scored) and continues. |
 
-- P-kun flashes 3 digits (1–9), one at a time. Each digit shows for 1 s with a short blank in between.
-- The patient scrolls a number wheel to each digit in turn and presses OK. Scrolling works with the arrows, by swiping up or down on the wheel, or with the up/down arrow keys (numpad 8/2 also work).
-- A correct round makes the next round one digit longer (up to 9). A mistake shows the right answer and makes the next round one digit shorter. Three mistakes end the game.
-- Scores are saved on the Pi only (`game_results` in `data/pkun.db`), because the backend doesn't store games.
+A notification closes on its own if the server skips it or it passes its deadline.
 
-To change the pace, edit `SHOW_SECONDS`, `GAP_SECONDS` and `START_DIGIT` in `pkun/ui/game_screen.py`. Starting length and number of lives are the `MemoryGame(...)` defaults in `pkun/game_logic.py`.
+## Games
+
+All three games share `pkun/ui/games/base.py`, which provides the intro screen, the result screen, the Home button and interrupt/resume. Results are saved on the Pi only (`game_results` in `data/pkun.db`, with `score`, `max_score` and a JSON `details` column), because the backend doesn't store games.
+
+**Number game** (`games/memory.py`)
+- P-kun flashes 3 digits (1–9), one at a time.
+- The patient scrolls a number wheel to each digit and presses OK. Scrolling works with the arrows, by swiping, or with the up/down keys.
+- A correct round makes the next one a digit longer (up to 9); a mistake makes it a digit shorter. Three mistakes end the game.
+
+**Which way?** (`games/faces.py`)
+- A drawn face looks up, down, left or right. Its nose points the way it is looking.
+- Before each round a card shows the rule: **SAME way** (green) or **OPPOSITE way** (orange). The patient presses Ready when they've understood it.
+- The patient presses the matching arrow on screen, or an arrow key (numpad 8/2/4/6 also work).
+- There are 3 rounds of 6 faces with 6 s per face. Round 1 is always SAME, and OPPOSITE appears at least once.
+- Results record per-round scores and the average answer time.
+
+**Color game** (`games/colors.py`)
+- A colored box has a *different* color's name written on it. The patient picks the color of the **box**, not the word. This is a Stroop test.
+- The four answer buttons always include the box color and the written word.
+- There are 10 questions with 10 s each. Keys 1–4 also choose an answer.
+- Results record how often the patient chose the written word and the average answer time. Red and green both appear, so tell staff if a patient is color-blind.
+
+Timings are constants at the top of each game file. Rounds, trials and lives are the defaults in `pkun/game_logic.py`.
 
 ## Sync and offline behaviour
 
@@ -75,11 +98,11 @@ pkun/store.py           SQLite cache, outbox, local game results
 pkun/sync.py            background sync engine
 pkun/realtime.py        Supabase Realtime listener
 pkun/presenter.py       what must be shown now (notification rules)
-pkun/game_logic.py      game rules
+pkun/game_logic.py      rules for all three games
 pkun/robot.py           ROS 2 bridge
 pkun/ui/app.py          screen routing and the notification override
 pkun/ui/screens.py      home, setup, contact, notification screens
-pkun/ui/game_screen.py  number game screen
+pkun/ui/games/          base.py + memory.py, faces.py, colors.py
 pkun/ui/theme.py        large high-contrast widgets
 tests/test_logic.py     unit tests
 ```

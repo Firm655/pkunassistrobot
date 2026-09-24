@@ -210,7 +210,7 @@ class SyncEngine:
         # 2. Heartbeat
         if time.monotonic() - self._last_heartbeat >= HEARTBEAT_EVERY:
             self.api.heartbeat(self.cfg.app_version, {
-                "display": True, "games": ["remember_the_number"], "numpad": False,
+                "display": True, "games": ["remember_the_number", "face_direction", "color_box"], "numpad": False,
                 "robot": bool(self.robot and self.robot.available), "platform": sys.platform,
             })
             self._last_heartbeat = time.monotonic()

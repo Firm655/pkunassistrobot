@@ -20,8 +20,24 @@ COLORS = {
 }
 
 
+# Colours used by the colour game (clearly different from each other).
+GAME_RGBA = {
+    "Red": (0.86, 0.14, 0.14, 1), "Blue": (0.13, 0.38, 0.93, 1), "Green": (0.10, 0.62, 0.22, 1),
+    "Yellow": (0.98, 0.85, 0.10, 1), "Purple": (0.56, 0.24, 0.80, 1), "Orange": (1.0, 0.52, 0.05, 1),
+}
+
+
 def color(name):
-    return COLORS.get(name, COLORS["primary"])
+    """Theme colour by name, game colour by name, or an (r, g, b, a) tuple."""
+    if isinstance(name, (tuple, list)):
+        return tuple(name)
+    return COLORS.get(name) or GAME_RGBA.get(name) or COLORS["primary"]
+
+
+def ink_for(rgba):
+    """Black or white text, whichever reads better on this background."""
+    r, g, b = rgba[:3]
+    return (0.05, 0.05, 0.05, 1) if 0.299 * r + 0.587 * g + 0.114 * b > 0.6 else (1, 1, 1, 1)
 
 
 class Text(Label):
@@ -68,6 +84,8 @@ class BigButton(_Rounded, ButtonBehavior, Label):
         self.base = color(bg)
         self.bg = self.base
         self._init_bg()
+        if isinstance(bg, str) and bg in GAME_RGBA:
+            self.color = ink_for(self.base)
         self.bind(size=lambda *_: setattr(self, "text_size", (self.width - dp(16), self.height)),
                   state=self._pressed)
 
@@ -99,10 +117,17 @@ class ArrowButton(_Rounded, ButtonBehavior, Widget):
     def _draw(self, *_):
         cx, cy = self.center
         w, h = min(self.width * 0.22, dp(46)), min(self.height * 0.6, dp(40))
-        if self.direction == "up":
+        if self.direction in ("left", "right"):
+            w, h = min(self.width * 0.6, dp(40)), min(self.height * 0.22, dp(46))
+        d = self.direction
+        if d == "up":
             self._tri.points = [cx - w, cy - h / 2, cx + w, cy - h / 2, cx, cy + h / 2]
-        else:
+        elif d == "down":
             self._tri.points = [cx - w, cy + h / 2, cx + w, cy + h / 2, cx, cy - h / 2]
+        elif d == "left":
+            self._tri.points = [cx + w / 2, cy - h, cx + w / 2, cy + h, cx - w / 2, cy]
+        else:
+            self._tri.points = [cx - w / 2, cy - h, cx - w / 2, cy + h, cx + w / 2, cy]
 
     def _pressed(self, *_):
         self.bg = COLORS["neutral"] if self.state == "down" else COLORS["card"]
