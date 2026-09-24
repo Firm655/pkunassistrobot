@@ -1,7 +1,7 @@
 {
   // Cloudflare Workers static-assets config for the caregiver dashboard.
   // Build first (npm run build), then `npx wrangler deploy` uploads dist/.
-  "name": "pkun-dashboard",
+  "name": "pkunassistrobot",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./dist",
