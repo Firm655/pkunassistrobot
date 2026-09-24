@@ -25,6 +25,14 @@ await supabase.from('care_events').insert({
 
 Check-in payload: `{answers: ['Fine', 'Unwell'], concerning_answers: ['Unwell']}`. For recurring activities insert the corresponding configuration row, including `start_date`, optional `end_date`, `scheduled_time` and `recurrence: 'ONCE' | 'DAILY' | 'WEEKLY'`, then call `refresh_schedules`.
 
+Guided follow-ups require migration `202609240002_check_in_followups.sql`. An authenticated caregiver calls
+`create_check_in_followup(parent_response_id, question, answers, concerning_answers)` after a check-in response.
+The RPC returns the new event UUID. It accepts 2–5 distinct, nonempty button labels, validates organization
+access and patient status, and returns the same event on a matching retry. The resulting `DAILY_CHECK_IN`
+event is immediately pending for P-kun, has a 24-hour deadline, and uses the normal `submit_response` RPC.
+Caregivers read `check_in_followups` to attach subsequent answers to the original question. Devices read
+only the resulting event, not the linkage table.
+
 | RPC | Parameters | Returns |
 | --- | --- | --- |
 | `refresh_schedules` | `horizon_days` (default 7, max 31) | Count of dates processed (not newly inserted rows) |

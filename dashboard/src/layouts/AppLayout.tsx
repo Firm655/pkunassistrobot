@@ -9,12 +9,12 @@ import { supabase } from '@/lib/supabase';
 const NAV = [
   { to: '/', label: 'Dashboard', icon: '🏠', end: true },
   { to: '/patients', label: 'Patients', icon: '👥' },
+  { to: '/check-ins', label: 'Daily check-in', icon: '☑' },
   { to: '/calendar', label: 'Calendar', icon: '📅' },
   { to: '/alerts', label: 'Alerts', icon: '🔔', badge: true },
   { to: '/history', label: 'History', icon: '🕘' },
 ];
 const NAV_SECONDARY = [
-  { to: '/messages', label: 'Messages', icon: '✉️' },
   { to: '/devices', label: 'P-kun devices', icon: '🤖' },
   { to: '/settings', label: 'Team & settings', icon: '⚙️' },
 ];

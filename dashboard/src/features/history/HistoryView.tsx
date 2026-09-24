@@ -47,7 +47,7 @@ export function HistoryView({ patientId: fixedPatient }: { patientId?: string })
     [tab, from, to, pid, type, status], ['care_events'],
   );
   const messages = useData(
-    () => (tab === 'messages' ? listMessages({ patientId: pid, since: fromIso, limit: 500 }) : Promise.resolve([])),
+    () => (tab === 'messages' ? listMessages({ patientId: pid, since: fromIso, limit: 500, patientResponsesOnly: true }) : Promise.resolve([])),
     [tab, pid, fromIso], ['messages'],
   );
   const alerts = useData(
@@ -87,7 +87,7 @@ export function HistoryView({ patientId: fixedPatient }: { patientId?: string })
       </div>
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: 'events', label: 'Care events & responses' },
-        { id: 'messages', label: 'Messages & requests' },
+        { id: 'messages', label: 'Patient requests' },
         { id: 'alerts', label: 'Alerts' },
         { id: 'log', label: 'Activity log' },
       ]} />
@@ -117,17 +117,16 @@ export function HistoryView({ patientId: fixedPatient }: { patientId?: string })
             )}
             {tab === 'messages' && (() => {
               const rows = inRange(messages.data, (m) => m.created_at);
-              return !rows.length ? <div className="card-body"><Empty>No messages in this range.</Empty></div> : (
+              return !rows.length ? <div className="card-body"><Empty>No patient requests in this range.</Empty></div> : (
                 <table className="table">
-                  <thead><tr><th>Time</th>{!fixedPatient && <th>Patient</th>}<th>From</th><th>Message</th><th>Delivery</th></tr></thead>
+                  <thead><tr><th>Time</th>{!fixedPatient && <th>Patient</th>}<th>Type</th><th>Response</th></tr></thead>
                   <tbody>
                     {rows.map((m) => (
                       <tr key={m.id}>
                         <td className="nowrap small">{formatDateTime(m.created_at, tz)}</td>
                         {!fixedPatient && <td>{patientMap.get(m.patient_id)?.name}</td>}
-                        <td>{m.sender_type === 'PATIENT' ? <Badge tone={m.request_code === 'HUNGRY' ? 'info' : 'danger'}>Patient request</Badge> : <Badge>{titleCase(m.message_type)}</Badge>}</td>
+                        <td>{m.message_type === 'PATIENT_REQUEST' ? <Badge tone={m.request_code === 'HUNGRY' ? 'info' : 'danger'}>Patient request</Badge> : <Badge tone="success">Patient response</Badge>}</td>
                         <td>{m.message}</td>
-                        <td className="small">{m.sender_type === 'PATIENT' ? '—' : m.acknowledged_at ? `Acknowledged ${formatDateTime(m.acknowledged_at, tz)}` : m.delivered_at ? `Delivered ${formatDateTime(m.delivered_at, tz)}` : 'Not yet delivered'}</td>
                       </tr>
                     ))}
                   </tbody>

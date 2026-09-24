@@ -12,7 +12,7 @@ import PatientFormPage from '@/pages/PatientFormPage';
 import PatientProfilePage from '@/pages/PatientProfilePage';
 import AlertsPage from '@/pages/AlertsPage';
 import HistoryPage from '@/pages/HistoryPage';
-import MessagesPage from '@/pages/MessagesPage';
+import CheckInsPage from '@/pages/CheckInsPage';
 import DevicesPage from '@/pages/DevicesPage';
 import SettingsPage from '@/pages/SettingsPage';
 import CalendarPage from '@/pages/CalendarPage';
@@ -25,6 +25,11 @@ function RequireCaregiver({ children }: { children: ReactNode }) {
   if (state.status === 'signed-out') return <Navigate to="/login" replace state={{ from: location }} />;
   if (state.status !== 'ready') return <NotProvisionedPage />;
   return <>{children}</>;
+}
+
+function LegacyMessagesRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/check-ins${location.search}`} replace />;
 }
 
 export default function App() {
@@ -43,7 +48,8 @@ export default function App() {
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="alerts" element={<AlertsPage />} />
               <Route path="history" element={<HistoryPage />} />
-              <Route path="messages" element={<MessagesPage />} />
+              <Route path="check-ins" element={<CheckInsPage />} />
+              <Route path="messages" element={<LegacyMessagesRedirect />} />
               <Route path="devices" element={<DevicesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

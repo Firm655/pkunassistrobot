@@ -16,16 +16,16 @@ import { EventDetailsModal } from '@/features/care-events/EventDetailsModal';
 import { ActivityFormModal } from '@/features/care-events/ActivityForm';
 import { CareActivitiesPanel } from '@/features/care-events/CareActivitiesPanel';
 import { CareCalendar } from '@/features/calendar/CareCalendar';
-import { MessageThread } from '@/features/messages/MessageThread';
 import { HistoryView } from '@/features/history/HistoryView';
 import { ageFrom, formatDateKey, timeAgo, todayIn } from '@/utils/dates';
 
-type Tab = 'overview' | 'calendar' | 'activities' | 'responses' | 'messages' | 'history';
+type Tab = 'overview' | 'calendar' | 'activities' | 'responses' | 'history';
 
 export default function PatientProfilePage() {
   const { id = '' } = useParams();
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('tab') as Tab) || 'overview';
+  const requestedTab = params.get('tab');
+  const tab = requestedTab === 'messages' ? 'responses' : (['overview', 'calendar', 'activities', 'responses', 'history'].includes(requestedTab ?? '') ? requestedTab as Tab : 'overview');
   const setTab = (t: Tab) => setParams(t === 'overview' ? {} : { tab: t }, { replace: true });
   const { tz } = useCaregiver();
   const { profileMap, deviceByPatient } = useReferenceData();
@@ -61,7 +61,6 @@ export default function PatientProfilePage() {
         { id: 'calendar', label: 'Calendar' },
         { id: 'activities', label: 'Care activities' },
         { id: 'responses', label: 'Responses' },
-        { id: 'messages', label: 'Messages' },
         { id: 'history', label: 'History' },
       ]} />
 
@@ -103,8 +102,15 @@ export default function PatientProfilePage() {
       )}
       {tab === 'calendar' && <Card><CareCalendar patientId={p.id} /></Card>}
       {tab === 'activities' && <CareActivitiesPanel patientId={p.id} />}
-      {tab === 'responses' && <ResponsesPanel patientId={p.id} />}
-      {tab === 'messages' && <Card title={`Messages with ${p.name}`}><MessageThread patientId={p.id} /></Card>}
+      {tab === 'responses' && (
+        <div className="stack">
+          <ResponsesPanel patientId={p.id} />
+          <Card title={`Daily check-ins for ${p.name}`}>
+            <p>Review questions, answers, and guided follow-ups in the daily check-in view.</p>
+            <Link className="btn btn-primary" to={`/check-ins?patient=${p.id}`}>Open daily check-in</Link>
+          </Card>
+        </div>
+      )}
       {tab === 'history' && <HistoryView patientId={p.id} />}
 
       {openId && <EventDetailsModal eventId={openId} onClose={() => setOpenId(null)} />}

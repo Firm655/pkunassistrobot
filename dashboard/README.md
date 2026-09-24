@@ -45,12 +45,12 @@ The database starts empty, and a Supabase Auth user is **not** a caregiver until
 | Auth | Email/password login, protected routes, session persistence/refresh, logout, not-provisioned screen, caregiver profile |
 | Dashboard | Today's date, upcoming / recently completed / missed events, active alerts, patient overview, device status, latest patient requests, quick actions |
 | Patients | List (photo, status, today's summary, open alerts, assigned P-kun), create/edit, private photo upload, 🔒 caretaker-only care notes |
-| Patient profile | Overview, patient calendar, care activities, responses (medicine adherence, meal responses, recent responses), messages, history |
+| Patient profile | Overview, patient calendar, care activities, responses (medicine adherence, meal responses, recent responses), check-in responses, history |
 | Calendar | FullCalendar month / week / day / list; all-patients or single patient; filter by patient, type, status; click day to create, click event to view/edit/skip |
 | Care activities | Daily check-ins (answers + concerning answers), medicines, meals (+ default 08/12/18), tasks — one-off or DAILY/WEEKLY, enable/disable |
-| Messages | Preset + short custom messages, delivery ✓ and acknowledgement ✓✓, patient requests highlighted |
+| Daily check-in | Date-based patient questions and answers, status summary, patient requests, and caregiver-selected button-answer follow-ups (requires backend migration `202609240002`) |
 | Alerts | Open / all, filter by patient, priority, type; open patient/event, mark reviewed (single or bulk) |
-| History | Filters: patient, date range, event type, status. Tabs: care events & responses, messages & requests, alerts, activity log |
+| History | Filters: patient, date range, event type, status. Tabs: care events & responses, check-ins & requests, alerts, activity log |
 | Devices | Status (with stale-heartbeat detection), last seen, app version, capabilities, pairing codes with countdown, assign/unassign, rename, revoke |
 | Realtime | One org-scoped channel; new alerts and patient requests pop up as toasts; affected lists refresh without reload |
 
@@ -70,8 +70,7 @@ The database starts empty, and a Supabase Auth user is **not** a caregiver until
   RLS is the security boundary.
 - **Times.** `scheduled_date` + `scheduled_time` are the organization's local wall-clock time
   (default Asia/Bangkok) and are shown as-is; absolute timestamps are formatted in the org timezone.
-- RPCs used: `refresh_schedules`, `send_caregiver_message`, `review_alert`, `create_pairing_code`,
-  `provision_caregiver`. Message sends use a fresh `submission_id` (idempotent on the server).
+- RPCs used: `refresh_schedules`, `review_alert`, `create_pairing_code`, `provision_caregiver`.
 
 ## Project structure
 
@@ -113,5 +112,5 @@ src/
 2. Patient → *Calendar* → click today → Medicine at the next minute → Save.
 3. On P-kun (or via the `submit_response` RPC) answer **NO** → the event turns red (Alert),
    a toast appears, and *Alerts* shows it → *Mark reviewed*.
-4. *Messages* → send "Good morning!" → P-kun acknowledges → ✓✓ Acknowledged.
-5. P-kun "I need help" → urgent toast + HIGH alert in real time.
+4. *Daily check-in* → select a patient, review the question and answer, and send a button-answer follow-up.
+5. P-kun "I need help" → urgent toast + HIGH alert in real time, with the request available under *Check-ins*.

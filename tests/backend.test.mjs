@@ -40,7 +40,7 @@ before(async () => {
     create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.jwt.claim.role',true),'') $$;
     grant usage on schema auth, public to anon,authenticated,service_role;
     grant execute on all functions in schema auth to anon,authenticated,service_role;`);
-  for (const filename of ['202609230001_schema.sql','202609230002_workflows.sql','202609230003_scheduling.sql','202609230004_realtime.sql','202609230006_null_assignment_guard.sql','202609240001_numeric_pairing_codes.sql']) {
+  for (const filename of ['202609230001_schema.sql','202609230002_workflows.sql','202609230003_scheduling.sql','202609230004_realtime.sql','202609230006_null_assignment_guard.sql','202609240001_numeric_pairing_codes.sql','202609240002_check_in_followups.sql']) {
     await db.exec(await readFile(new URL(`../supabase/migrations/${filename}`,import.meta.url),'utf8'));
   }
   for (const user of [adminA,staffA,adminB,deviceUser,foreignDeviceUser,unpairedUser]) await db.query('insert into auth.users values ($1)',[user]);
@@ -58,7 +58,7 @@ after(async () => { if (db) await db.close(); });
 
 test('every application table has RLS and signed-out users have no table access', async () => {
   const tables = await db.query(`select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and relkind='r'`);
-  assert.equal(tables.rows.length,14);
+  assert.equal(tables.rows.length,15);
   for (const table of tables.rows) {
     assert.equal(table.relrowsecurity,true,table.relname);
     await assert.rejects(as(null,`select * from public.${table.relname}`,[],'anon'),/permission denied/);
@@ -150,6 +150,29 @@ test('check-in validates choices and generates configured alerts', async () => {
   await assert.rejects(respond(e,'Invented'),/configured choices/);
   await respond(e,'Unwell');
   assert.equal((await as(staffA,'select alert_type from public.alerts where event_id=$1',[e]))[0].alert_type,'CONCERNING_CHECK_IN');
+});
+test('staff sends a linked button-answer follow-up; retries, access and answers are enforced', async () => {
+  const original = await event('DAILY_CHECK_IN',{answers:['Fine','Unwell'],concerning_answers:['Unwell']});
+  const sourceId = id();
+  await respond(original,'Unwell',{},sourceId);
+  const create = `select public.create_check_in_followup($1,$2,$3::text[],$4::text[]) as id`;
+  const args = [sourceId,'What feels wrong?',['Pain','Tired','Not sure'],['Pain']];
+  await assert.rejects(as(adminB,create,args),/Not authorized/);
+  await assert.rejects(as(deviceUser,create,args),/Not authorized/);
+  const [{id: child}] = await as(staffA,create,args);
+  assert.equal((await as(staffA,create,args))[0].id,child);
+  await assert.rejects(as(staffA,create,[sourceId,'Different question',['Yes','No'],[]]),/already exists/);
+  await assert.rejects(as(staffA,create,[sourceId,'Bad choices',['Same','Same'],[]]),/Invalid question/);
+  const [{status,payload,patient_id}] = await as(staffA,'select status,payload,patient_id from public.care_events where id=$1',[child]);
+  assert.equal(status,'PENDING');
+  assert.equal(patient_id,patientA);
+  assert.deepEqual(payload.answers,['Pain','Tired','Not sure']);
+  await assert.rejects(as(staffA,`update public.care_events set title='Rewritten' where id=$1`,[child]),/cannot be edited/);
+  assert.equal((await as(deviceUser,'select count(*)::int as n from public.care_events where id=$1',[child]))[0].n,1);
+  assert.equal((await as(adminB,'select count(*)::int as n from public.check_in_followups where event_id=$1',[child]))[0].n,0);
+  await assert.rejects(respond(child,'Other'),/configured choices/);
+  await respond(child,'Pain');
+  assert.equal((await as(staffA,'select alert_type from public.alerts where event_id=$1',[child]))[0].alert_type,'CONCERNING_CHECK_IN');
 });
 test('tasks complete from a display receipt without asking the patient', async () => {
   const e = await event('TASK'); await respond(e,'DISPLAYED');

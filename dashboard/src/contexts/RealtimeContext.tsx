@@ -51,9 +51,9 @@ export function RealtimeProvider({ orgId, children }: { orgId: string; children:
             const m = payload.new as Message;
             if (m.sender_type === 'PATIENT') {
               toastRef.current({
-                kind: m.request_code === 'HUNGRY' ? 'info' : 'urgent',
-                title: 'Patient request', body: m.message,
-                onClick: () => navRef.current(`/messages?patient=${m.patient_id}`),
+                kind: m.message_type === 'PATIENT_REQUEST' && m.request_code !== 'HUNGRY' ? 'urgent' : 'info',
+                title: m.message_type === 'PATIENT_REQUEST' ? 'Patient request' : 'Patient response', body: m.message,
+                onClick: () => navRef.current(`/check-ins?patient=${m.patient_id}`),
               });
             }
           }

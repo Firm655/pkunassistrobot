@@ -52,13 +52,6 @@ export const EVENT_TYPE_FOR_SOURCE: Record<SourceTable, EventType> = {
   tasks: 'TASK',
 };
 
-export const CAREGIVER_PRESET_MESSAGES = [
-  'Good morning!',
-  'Please remember to take your medicine.',
-  'Please have your lunch.',
-  'Please get ready for your activity.',
-];
-
 export const DEFAULT_MEAL_TIMES: Record<MealType, string> = {
   BREAKFAST: '08:00',
   LUNCH: '12:00',

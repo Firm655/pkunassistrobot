@@ -284,27 +284,68 @@ input[type='checkbox'] { width: auto; min-height: 0; accent-color: var(--primary
 .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
 .auth-brand p { margin: 0; }
 
-/* ---------- messages ---------- */
-.messages-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
-@media (max-width: 900px) { .messages-layout { grid-template-columns: 1fr; } }
+/* ---------- check-ins ---------- */
+.checkins-layout { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .picker-list { list-style: none; margin: 0; padding: 6px; max-height: 70vh; overflow-y: auto; }
 .picker-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px; border: 0; background: none; border-radius: 8px; cursor: pointer; text-align: left; color: inherit; }
 .picker-item .grow { display: flex; flex-direction: column; }
 .picker-item:hover { background: var(--surface-2); }
 .picker-item.active { background: var(--primary-50); }
-.thread { display: flex; flex-direction: column; gap: 10px; }
-.thread-messages { max-height: 52vh; min-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 2px; }
+.responses-thread { display: flex; flex-direction: column; gap: 10px; }
+.thread-messages { max-height: 65vh; min-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 2px; }
 .bubble-row { display: flex; }
 .bubble-row.mine { justify-content: flex-end; }
-.bubble { max-width: 75%; padding: 9px 13px; border-radius: 14px; background: var(--neutral-bg); }
+.bubble { max-width: 85%; padding: 9px 13px; border-radius: 14px; background: var(--neutral-bg); overflow-wrap: anywhere; }
 .mine .bubble { background: var(--primary-50); border-bottom-right-radius: 4px; }
-.theirs .bubble { border-bottom-left-radius: 4px; background: #fff7e6; border: 1px solid #f7deb0; }
+.theirs .bubble { border-bottom-left-radius: 4px; background: var(--surface-2); border: 1px solid var(--border); }
 .bubble-urgent { background: var(--danger-bg) !important; border-color: #f5b5b5 !important; }
 .bubble-kicker { font-size: .74rem; font-weight: 700; text-transform: uppercase; color: var(--warning); margin-bottom: 2px; }
 .bubble-urgent .bubble-kicker { color: var(--danger); }
 .bubble-meta { font-size: .76rem; color: var(--muted); margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
-.composer { display: flex; gap: 8px; align-items: center; }
+.checkin-date { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.checkins-layout { font-size: 16px; line-height: 1.5; }
+.checkins-layout .small, .checkin-kicker, .checkin-meta { font-size: 14px; }
+.checkins-layout button:focus-visible, .checkin-date button:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.checkin-date input { width: 160px; min-height: 44px; }
+.checkin-date .btn { min-height: 44px; }
+.checkin-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.checkin-stats span { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text-2); }
+.checkin-stats strong { color: var(--text); font-size: 1.15rem; margin-right: 4px; }
+.checkin-picker-controls { display: grid; gap: 8px; padding: 14px; border-bottom: 1px solid var(--border); }
+.checkin-picker-controls input, .checkin-picker-controls select { min-height: 44px; }
+.checkins-layout .picker-item { min-height: 68px; }
+.checkin-patient-meta { display: flex; gap: 10px 18px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.checkin-questions { display: grid; gap: 16px; padding-top: 16px; }
+.checkin-question { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 20px 24px; }
+.checkin-question.is-followup { margin-top: 16px; background: var(--surface-2); border-left: 3px solid var(--primary); }
+.checkin-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.checkin-kicker, .checkin-meta { color: var(--text-2); font-size: .9rem; }
+.checkin-question h3 { font-size: 1.15rem; margin: 12px 0; overflow-wrap: anywhere; }
+.checkin-answer { font-size: 1.35rem; font-weight: 650; color: var(--text); overflow-wrap: anywhere; }
+.checkin-follow-button { min-height: 44px; margin-top: 6px; }
+.checkin-requests { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+.checkin-requests h3 { font-size: 1.1rem; }
+.checkin-request { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 0; }
+.checkin-source { background: var(--surface-2); border-radius: 8px; padding: 12px; line-height: 1.6; }
+.checkin-option-editor { margin-top: 18px; }
+.checkin-option-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.checkin-option-row > input { flex: 1; }
+.checkin-option-row label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.checkin-option-row .btn { min-height: 44px; }
+.checkin-preview { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; margin-top: 18px; padding: 16px; }
+.checkin-preview p { font-size: 1.2rem; font-weight: 650; }
+.checkin-preview div { display: flex; gap: 8px; flex-wrap: wrap; }
+.checkin-preview span { border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); padding: 10px 14px; }
+@media (max-width: 600px) { .checkin-question { padding: 16px; } .checkin-option-row { flex-wrap: wrap; } .checkin-option-row > input { flex-basis: 100%; } }
+@media (max-width: 900px) {
+  .checkins-layout { grid-template-columns: minmax(0, 1fr); }
+  .checkins-layout.has-selection .patient-picker,
+  .checkins-layout:not(.has-selection) .responses-card { display: none; }
+  .picker-list { max-height: none; }
+  .picker-item { min-height: 60px; }
+  .thread-messages { max-height: calc(100dvh - 260px); min-height: 180px; }
+}
 
 /* ---------- devices ---------- */
 .device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
