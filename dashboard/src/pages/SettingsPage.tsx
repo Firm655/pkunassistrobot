@@ -6,6 +6,7 @@ import { PageHeader, Card, Badge, Field, ErrorBox } from '@/components/ui';
 import { supabase, unwrap } from '@/lib/supabase';
 import { formatDateTime } from '@/utils/dates';
 import type { Role } from '@/types/db';
+import { TeamCodeCard } from '@/features/team/TeamCodeCard';
 
 export default function SettingsPage() {
   const { profile, organization, isAdmin, tz, userId } = useCaregiver();
@@ -51,11 +52,12 @@ export default function SettingsPage() {
             ))}
           </ul>
         </Card>
+        {isAdmin && <TeamCodeCard />}
         {isAdmin && (
-          <Card title="Add caregiver">
+          <Card title="Add caregiver manually">
             <p className="muted small">
-              1. Create the person's account in Supabase Auth (Dashboard → Authentication → Add user). 2. Paste their user ID here.
-              They'll see their ID on the “Access not provisioned” screen after signing in. Device accounts cannot become caregivers.
+              Usually easier: share the team code and let people register themselves. Use this only for an account that already
+              exists in Supabase Auth (e.g. to add another administrator): paste its user ID. Device accounts cannot become caregivers.
             </p>
             <form onSubmit={provision} className="form-grid">
               <Field label="Auth user ID" full><input value={form.user_id} onChange={(e) => setForm({ ...form, user_id: e.target.value })} required pattern="[0-9a-fA-F-]{36}" placeholder="00000000-0000-0000-0000-000000000000" /></Field>

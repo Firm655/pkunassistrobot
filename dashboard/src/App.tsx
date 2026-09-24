@@ -5,6 +5,7 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { Spinner } from '@/components/ui';
 import AppLayout from '@/layouts/AppLayout';
 import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
 import NotProvisionedPage from '@/pages/NotProvisionedPage';
 import DashboardPage from '@/pages/DashboardPage';
 import PatientsPage from '@/pages/PatientsPage';
@@ -39,6 +40,7 @@ export default function App() {
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route element={<RequireCaregiver><AppLayout /></RequireCaregiver>}>
               <Route index element={<DashboardPage />} />
               <Route path="patients" element={<PatientsPage />} />

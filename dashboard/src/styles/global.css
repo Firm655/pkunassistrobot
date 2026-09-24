@@ -403,3 +403,5 @@ input[type='checkbox'] { width: auto; min-height: 0; accent-color: var(--primary
   .fc .fc-toolbar { flex-direction: column; gap: 8px; }
   .fc .fc-toolbar-title { font-size: 1rem; }
 }
+
+.team-code-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.15rem; letter-spacing: .12em; text-transform: uppercase; }

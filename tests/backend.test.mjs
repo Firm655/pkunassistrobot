@@ -40,7 +40,7 @@ before(async () => {
     create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.jwt.claim.role',true),'') $$;
     grant usage on schema auth, public to anon,authenticated,service_role;
     grant execute on all functions in schema auth to anon,authenticated,service_role;`);
-  for (const filename of ['202609230001_schema.sql','202609230002_workflows.sql','202609230003_scheduling.sql','202609230004_realtime.sql','202609230006_null_assignment_guard.sql','202609240001_numeric_pairing_codes.sql','202609240002_check_in_followups.sql']) {
+  for (const filename of ['202609230001_schema.sql','202609230002_workflows.sql','202609230003_scheduling.sql','202609230004_realtime.sql','202609230006_null_assignment_guard.sql','202609240001_numeric_pairing_codes.sql','202609240002_check_in_followups.sql','202609250001_team_codes.sql']) {
     await db.exec(await readFile(new URL(`../supabase/migrations/${filename}`,import.meta.url),'utf8'));
   }
   for (const user of [adminA,staffA,adminB,deviceUser,foreignDeviceUser,unpairedUser]) await db.query('insert into auth.users values ($1)',[user]);
@@ -58,7 +58,7 @@ after(async () => { if (db) await db.close(); });
 
 test('every application table has RLS and signed-out users have no table access', async () => {
   const tables = await db.query(`select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and relkind='r'`);
-  assert.equal(tables.rows.length,15);
+  assert.equal(tables.rows.length,16);
   for (const table of tables.rows) {
     assert.equal(table.relrowsecurity,true,table.relname);
     await assert.rejects(as(null,`select * from public.${table.relname}`,[],'anon'),/permission denied/);
@@ -257,4 +257,36 @@ test('hosted smoke script validates the loop and rolls back its fixtures', async
   const beforeCount = (await db.query('select count(*)::int as n from auth.users')).rows[0].n;
   await db.exec(await readFile(new URL('../supabase/tests/hosted_smoke.sql',import.meta.url),'utf8'));
   assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,beforeCount);
+});
+
+test('team codes: admin-only, readable format, caretaker-only join, rate limited, service-role gated', async () => {
+  await assert.rejects(as(staffA,`select public.create_team_code()`),/Administrator/);
+  const [{code}] = await as(adminA,`select public.create_team_code()->>'code' as code`);
+  assert.match(code, /^[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+  // Browsers/devices cannot call the server-side steps directly.
+  await assert.rejects(as(staffA,`select public.check_team_code($1)`,[code]),/permission denied/);
+  await assert.rejects(as(unpairedUser,`select public.redeem_team_code($1,$2,'X')`,[code,unpairedUser]),/permission denied/);
+  const svc = (sql, params) => as(null, sql, params, 'service_role');
+  assert.equal((await svc(`select public.check_team_code($1,'ip-ok') as v`,[code.toLowerCase().replace('-',' ')]))[0].v, true);
+  const newbie = id(); await db.query('insert into auth.users values($1)',[newbie]);
+  const [{org}] = await svc(`select public.redeem_team_code($1,$2,'  New Nurse ') as org`,[code,newbie]);
+  assert.equal(org, orgA);
+  const [p] = await db.query('select role, full_name, organization_id from public.profiles where id=$1',[newbie]).then(r=>r.rows);
+  assert.deepEqual(p, { role: 'caretaker', full_name: 'New Nurse', organization_id: orgA });
+  await assert.rejects(svc(`select public.redeem_team_code($1,$2,'Again')`,[code,newbie]),/Not a new caregiver/);
+  await assert.rejects(svc(`select public.redeem_team_code($1,$2,'Robot')`,[code,deviceUser]),/Not a new caregiver/);
+  assert.equal((await as(staffA,'select * from public.team_codes')).length, 0);
+  assert.equal((await as(adminB,'select * from public.team_codes')).length, 0);
+  assert.equal((await as(adminA,'select uses from public.team_codes where not revoked'))[0].uses, 1);
+  // Revoked and replaced codes stop working.
+  await as(adminA,`select public.create_team_code()`);
+  assert.equal((await svc(`select public.check_team_code($1) as v`,[code]))[0].v, false);
+  const other = id(); await db.query('insert into auth.users values($1)',[other]);
+  assert.equal((await svc(`select public.redeem_team_code($1,$2,'Late') as org`,[code,other]))[0].org, null);
+  await as(adminA,`select public.revoke_team_code()`);
+  assert.equal((await as(adminA,'select count(*)::int as n from public.team_codes where not revoked'))[0].n, 0);
+  // Rate limit per client.
+  await db.exec('delete from private.team_code_attempts');
+  for (let i = 0; i < 5; i++) await svc(`select public.check_team_code('AAAA-AAAA','ip-bad')`);
+  await assert.rejects(svc(`select public.check_team_code('AAAA-AAAA','ip-bad')`),/Too many wrong team codes/);
 });

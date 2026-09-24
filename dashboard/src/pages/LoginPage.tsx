@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabaseConfigured } from '@/lib/supabase';
 import { ErrorBox } from '@/components/ui';
@@ -42,7 +42,7 @@ export default function LoginPage() {
         </label>
         <ErrorBox error={error} />
         <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <p className="muted small">Accounts are provisioned by your organization administrator.</p>
+        <p className="muted small">First time here? <Link to="/register">Create an account</Link> with the team code from your administrator.</p>
       </form>
     </div>
   );
