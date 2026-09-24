@@ -33,6 +33,9 @@ The public repository deploys the dashboard automatically with GitHub Actions af
 so it works without extra account setup. You can override them with repository secrets under
 **Settings → Secrets and variables → Actions**:
 
+The published site uses the repository's GitHub Pages URL, so dashboard edits remain reviewable and
+editable by collaborators with write access.
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
