@@ -116,14 +116,15 @@ function PairingModal({ code, tz, onClose }: { code: { code: string; expires_at:
   const mm = Math.max(0, Math.floor(left / 60000)), ss = Math.max(0, Math.floor((left % 60000) / 1000));
   return (
     <Modal title="Pairing code" onClose={onClose} footer={<button className="btn btn-primary" onClick={onClose}>Done</button>}>
-      <p>Enter this single-use code in the P-kun setup screen (signed in with the device's own account).</p>
+      <p>On the P-kun setup screen, enter this code with the keypad:</p>
       <div className={`pair-code ${expired ? 'expired' : ''}`}>
-        <code>{code.code}</code>
+        <code aria-label={code.code.split('').join(' ')}>{code.code.slice(0, 3)} {code.code.slice(3)}</code>
         <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(code.code)}>Copy</button>
       </div>
       <p className={expired ? 'error-text' : 'muted'}>
-        {expired ? 'This code has expired. Generate a new one.' : `Expires in ${mm}:${String(ss).padStart(2, '0')} (at ${formatDateTime(code.expires_at, tz)}).`}
+        {expired ? 'This code has expired. Generate a new one.' : `Single use · expires in ${mm}:${String(ss).padStart(2, '0')} (at ${formatDateTime(code.expires_at, tz)}).`}
       </p>
+      <p className="muted small">Generating another code cancels this one. After 5 wrong tries, P-kun must wait 10 minutes.</p>
       <p className="muted small">After pairing, the new device appears on this page — assign it to a patient to start syncing their schedule.</p>
     </Modal>
   );

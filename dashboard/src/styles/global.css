@@ -311,7 +311,8 @@ input[type='checkbox'] { width: auto; min-height: 0; accent-color: var(--primary
 .device-actions { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .device-actions input { width: 170px; min-height: 30px; padding: 4px 8px; }
 .pair-code { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 14px; margin: 12px 0; }
-.pair-code code { font-size: 1.05rem; font-weight: 700; word-break: break-all; flex: 1; }
+.pair-code { justify-content: center; }
+.pair-code code { font-size: 2.6rem; font-weight: 800; letter-spacing: .12em; font-variant-numeric: tabular-nums; flex: 1; text-align: center; color: var(--primary); }
 .pair-code.expired code { text-decoration: line-through; color: var(--muted); }
 
 /* ---------- adherence ---------- */

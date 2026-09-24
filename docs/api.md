@@ -30,7 +30,7 @@ Check-in payload: `{answers: ['Fine', 'Unwell'], concerning_answers: ['Unwell']}
 | `refresh_schedules` | `horizon_days` (default 7, max 31) | Count of dates processed (not newly inserted rows) |
 | `send_caregiver_message` | `submission_id`, `patient_id`, `message`, `message_type` (`CUSTOM` or `PRESET`) | Message UUID |
 | `review_alert` | `alert_id` | void |
-| `create_pairing_code` | none; administrator only | `{code, expires_at}` |
+| `create_pairing_code` | none; administrator only | `{code, expires_at}` — `code` is 6 digits; creating one cancels the organization's previous unused code |
 | `provision_caregiver` | `user_id`, `organization_id`, `full_name`, `role` | void; administrator only |
 
 Reuse the same submission UUID and contents on a message retry. Admins can update only `device_name`, `assigned_patient_id` and `revoked_at` directly on devices. A device Auth identity cannot be changed by a table update.
@@ -39,11 +39,11 @@ Photo upload path: `ORGANIZATION_UUID/PATIENT_UUID/RANDOM_UUID.jpg` in private b
 
 ## P-kun
 
-Use a dedicated Supabase Auth account, a publishable key, and normal session refresh. Pairing does not grant staff permissions and the code is not a permanent password. Pairing codes contain a random UUID (122 random bits), are stored only as SHA-256 hashes, expire after ten minutes and are consumed transactionally.
+Use a dedicated Supabase Auth account, a publishable key, and normal session refresh. Pairing does not grant staff permissions and the code is not a permanent password. Pairing codes are 6 random digits (from `gen_random_uuid()`), stored only as SHA-256 hashes, expire after ten minutes, are consumed transactionally, and only one per organization is active. Guessing is limited to 5 wrong codes per account and 30 overall per 10 minutes (≈0.003% worst-case chance to hit a live code). Treat a `null` result as "wrong or expired code" on the device screen.
 
 | RPC | Parameters | Returns |
 | --- | --- | --- |
-| `pair_device` | `pairing_code`, `device_name` | Device UUID |
+| `pair_device` | `pairing_code` (6 digits; spaces/dashes ignored), `device_name` | Device UUID, or **null** for a wrong/expired code. Raises after 5 wrong codes per account or 30 overall in 10 minutes |
 | `device_context` | none | `{device_id, patient_id, patient_name, timezone}` or a null patient assignment |
 | `device_heartbeat` | `app_version`, `capabilities` object | Server last-seen timestamp |
 | `submit_response` | `submission_id`, `patient_id`, `event_id`, `response`, `response_data`, `response_time` | Response UUID |

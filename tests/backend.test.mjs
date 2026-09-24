@@ -40,7 +40,7 @@ before(async () => {
     create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.jwt.claim.role',true),'') $$;
     grant usage on schema auth, public to anon,authenticated,service_role;
     grant execute on all functions in schema auth to anon,authenticated,service_role;`);
-  for (const filename of ['202609230001_schema.sql','202609230002_workflows.sql','202609230003_scheduling.sql','202609230004_realtime.sql','202609230006_null_assignment_guard.sql']) {
+  for (const filename of ['202609230001_schema.sql','202609230002_workflows.sql','202609230003_scheduling.sql','202609230004_realtime.sql','202609230006_null_assignment_guard.sql','202609240001_numeric_pairing_codes.sql']) {
     await db.exec(await readFile(new URL(`../supabase/migrations/${filename}`,import.meta.url),'utf8'));
   }
   for (const user of [adminA,staffA,adminB,deviceUser,foreignDeviceUser,unpairedUser]) await db.query('insert into auth.users values ($1)',[user]);
@@ -89,13 +89,39 @@ test('unprofiled accounts gain no data or administrative powers', async () => {
 });
 test('pairing is single-use, expires, and cannot attach a caregiver account', async () => {
   const [{code}] = await as(adminA,`select public.create_pairing_code()->>'code' as code`);
+  assert.match(code, /^\d{6}$/);
   await assert.rejects(as(staffA,`select public.pair_device($1,'Bad')`,[code]),/dedicated/);
-  await as(unpairedUser,`select public.pair_device($1,'Spare')`,[code]);
+  const [{d}] = await as(unpairedUser,`select public.pair_device($1,'Spare') as d`,[code.slice(0,3)+' '+code.slice(3)]);
+  assert.ok(d, 'spaced code accepted');
   const another = id(); await db.query('insert into auth.users values($1)',[another]);
-  await assert.rejects(as(another,`select public.pair_device($1,'Replay')`,[code]),/Invalid or expired/);
+  assert.equal((await as(another,`select public.pair_device($1,'Replay') as d`,[code]))[0].d, null);
   const [{code:expired}] = await as(adminA,`select public.create_pairing_code()->>'code' as code`);
   await db.exec(`update public.pairing_codes set expires_at=now()-interval '1 minute' where not used`);
-  await assert.rejects(as(another,`select public.pair_device($1,'Expired')`,[expired]),/Invalid or expired/);
+  assert.equal((await as(another,`select public.pair_device($1,'Expired') as d`,[expired]))[0].d, null);
+});
+test('a new pairing code cancels the previous one; only admins can read codes', async () => {
+  const [{code:first}] = await as(adminA,`select public.create_pairing_code()->>'code' as code`);
+  await as(adminA,`select public.create_pairing_code()`);
+  const u = id(); await db.query('insert into auth.users values($1)',[u]);
+  assert.equal((await as(u,`select public.pair_device($1,'Old') as d`,[first]))[0].d, null);
+  assert.equal((await as(staffA,'select * from public.pairing_codes')).length, 0);
+  assert.ok((await as(adminA,'select * from public.pairing_codes')).length > 0);
+});
+test('wrong pairing codes are rate limited per account and globally', async () => {
+  await db.exec('delete from private.pairing_attempts');
+  const [{code}] = await as(adminA,`select public.create_pairing_code()->>'code' as code`);
+  const wrong = String((Number(code) + 1) % 1000000).padStart(6,'0');
+  const u = id(); await db.query('insert into auth.users values($1)',[u]);
+  for (let i = 0; i < 5; i++) assert.equal((await as(u,`select public.pair_device($1,'Guess') as d`,[wrong]))[0].d, null);
+  await assert.rejects(as(u,`select public.pair_device($1,'Guess')`,[code]),/Too many wrong codes/);
+  for (let n = 0; n < 5; n++) {
+    const v = id(); await db.query('insert into auth.users values($1)',[v]);
+    for (let i = 0; i < 5; i++) await as(v,`select public.pair_device($1,'Guess')`,[wrong]);
+  }
+  const w = id(); await db.query('insert into auth.users values($1)',[w]);
+  await assert.rejects(as(w,`select public.pair_device($1,'Right')`,[code]),/temporarily paused/);
+  await db.exec('delete from private.pairing_attempts');
+  assert.ok((await as(w,`select public.pair_device($1,'Right') as d`,[code]))[0].d, 'pairs once the window clears');
 });
 test('device sees only its assigned events, cannot directly mutate them, and cannot submit to another patient', async () => {
   const a = await event(); const b = await event('MEDICINE',{},patientB,orgB,adminB);
